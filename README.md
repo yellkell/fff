@@ -28,6 +28,16 @@ rebuilt for the headsets that ship without controllers. **Read
     peaks;
   - close again while it's away to **recall** it, and keep closed to catch
     it back into orbit.
+- **Menus you poke** (DESIGN §2.1). Neon on smoked glass, pressed with a
+  fingertip: the face sinks under your finger, a bright dot shows where
+  your fingertip is even when the panel hides it, and a finger has to come
+  at a button from the front to press it.
+  - **THE CONSOLE** rises out of the floor at the front of your pad:
+    TITANS and 1V1 (locked until they're built) and PRACTICE. It sinks
+    away when you start.
+  - **THE WRIST PANEL**: turn your left palm up and look at it. LEAVE
+    goes back to the console; RECENTRE puts the pad under your feet,
+    facing where you look.
 - **Practice targets.** Neon rings in front of you that burst when a ball
   goes through them.
 
@@ -49,7 +59,8 @@ switch the input mode to hands.
 ```bash
 npm run typecheck && npm run build
 npm run check:hands  # the hand-shape reader's laws, joint by joint (plain Node)
-npm run check:smoke  # needs `npm run dev`: boots, enters, and plays the whole
+npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
+                     # and pokes its way through every menu and the whole
                      # fireball loop with the emulator's hands
 ```
 

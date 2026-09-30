@@ -9,6 +9,7 @@ import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from 'three';
 import { NEON, TARGETS } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
+import { game } from '../game/state.js';
 
 export interface Target {
   group: Group;
@@ -56,6 +57,15 @@ export class TargetSystem extends createSystem({}) {
   }
 
   update(delta: number): void {
+    // Targets are PRACTICE's: gone at the console, back in a fresh spread after.
+    if (game.mode !== 'practice') {
+      targets.forEach((t, i) => {
+        t.live = false;
+        t.group.visible = false;
+        t.respawnIn = 0.3 + 0.2 * i;
+      });
+      return;
+    }
     this.camera.getWorldPosition(this._head);
     for (const t of targets) {
       if (!t.live) {

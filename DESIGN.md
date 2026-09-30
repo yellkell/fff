@@ -51,15 +51,46 @@ joints directly.
   joint instead of the grip. Drop samples whose joint has no pose, and
   widen the release window, because the hand opens *after* the peak of the
   punch.
-- **Menus:** poke. Buttons are neon plates you touch with your index tip
-  (IWSDK `indexTipSpaces`). No rays.
+- **Menus:** poke. Buttons are neon plates you touch with your index tip.
+  No rays, so every button is within arm's reach. See §2.1.
 - **Replacing the A button:** turn your left palm up and look at it; a
-  small wrist panel opens (forfeit, loadout, leave, mute).
+  small wrist panel opens (§2.1).
 - **Hands you see:** your real hands, in passthrough. We add a neon rim on
   the knuckles plus the orbiting ball. IWSDK's own hand mesh is hidden.
   FF2's steel gloves are gone.
 - **Feedback without haptics:** every buzz FF2 had becomes a sound plus a
   light (ignite flare, catch snap, parry crack, hit flash on the rim).
+
+### 2.1 Menus
+
+- **Neon on smoked glass.** Every panel has a dark, see-through plate
+  behind its neon, so text reads over a bright wall or window. Pure
+  additive glow washes out there.
+- **The poke.** A button fires when a fingertip that came at it *from the
+  front* pushes 1.2 cm past its face. It can't fire again until that
+  finger pulls back out. A finger that slides in from the side, already
+  deep, fires nothing. No two presses within 0.3 s. The face brightens as
+  you approach and sinks under your finger; a press flashes it white, and
+  a locked button flashes red and says why.
+- **The fingertip dot.** Your real hand is part of the passthrough image
+  *behind* the scene, so a panel hides your finger. A bright dot drawn on
+  top of everything marks each index tip near a button.
+- **Hands on a menu don't fight.** A pointing hand has three fingers
+  curled, which sits in the fist reader's grey zone. While a menu has
+  your hands, a hand shape never lights, throws or recalls a ball.
+- **THE CONSOLE** (home). It rises out of the floor at the front of your
+  pad, ~42 cm in front of you at chest height, tilted to face you, and
+  sinks away when a fight starts. Three cards: **TITANS**, **1V1**,
+  **PRACTICE**. Modes not built yet stay on it, locked, so the game's
+  shape is there from day one. Each card becomes a station in THE
+  CONSTELLATION (§6): TITANS → the BOSS GATE, 1V1 → the DUEL RING.
+- **THE WRIST PANEL.** Left palm up, looked at, held for 0.2 s: it opens
+  10 cm above your palm, poked with your right hand. **LEAVE** (back to
+  the console) and **RECENTRE** (turn and slide the world so the pad is
+  under you, facing where you look). Forfeit and mute join it when there
+  is a fight and a sound to have.
+- **Later:** results after every fight (REMATCH · NEXT TITAN · HOME), a
+  first-run hands check, settings.
 
 ---
 
@@ -191,7 +222,8 @@ laid out on your floor.
 
 ## 8 · Build order
 
-Steps 1 and 2 are done (see the README).
+Steps 1 and 2 are done, and so are the console and wrist panel (§2.1;
+see the README).
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for
