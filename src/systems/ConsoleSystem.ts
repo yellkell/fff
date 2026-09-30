@@ -9,12 +9,16 @@
  * that room. Cards for modes that aren't built yet stay on the panel,
  * locked, and say so when poked, so the shape of the game is there from
  * day one.
+ *
+ * After a fight it comes back up on its RESULTS face: who won and how
+ * fast, then REMATCH, NEXT TITAN (locked until the next one is built) and
+ * HOME, same three places as the cards you just used.
  */
 
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import { CONSOLE, NEON } from '../config.js';
-import { game, setMode } from '../game/state.js';
+import { type FightResult, game, setMode } from '../game/state.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { addButton, PokeButton } from '../ui/poke.js';
 
@@ -28,7 +32,11 @@ export class ConsoleSystem extends createSystem({}) {
   private beam!: Mesh;
   private beamMat!: MeshBasicMaterial;
   private status!: TextPlane;
+  private title!: TextPlane;
   private readonly cards: PokeButton[] = [];
+  private readonly homeFace = new Group();
+  private readonly resultFace = new Group();
+  private shownResult: FightResult | null | undefined = undefined;
   private statusText = '';
   private statusHold = 0;
   private rise = 0;
@@ -42,26 +50,19 @@ export class ConsoleSystem extends createSystem({}) {
     this.root.add(glass(W, H, 0.018));
     this.root.add(frame(W, H, 0.005, NEON.cyan, 0.018));
 
-    const title = textPlane(W * 0.9, 0.045);
-    title.mesh.position.y = H / 2 - 0.038;
-    title.draw((g, w, h) => {
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.font = `900 ${h * 0.62}px ${FONT}`;
-      glowText(g, 'FIRE FIGHT FLUX', w / 2, h / 2, NEON.magenta);
-    });
-    this.root.add(title.mesh);
+    this.title = textPlane(W * 0.9, 0.045);
+    this.title.mesh.position.y = H / 2 - 0.038;
+    this.root.add(this.title.mesh, this.homeFace, this.resultFace);
 
     this.status = textPlane(W * 0.9, 0.035);
     this.status.mesh.position.y = -H / 2 + 0.03;
     this.root.add(this.status.mesh);
-    this.setStatus(HINT);
 
     const cardW = 0.155;
     const cardH = 0.17;
     const gap = 0.02;
     const defs = [
-      { id: 'titans', label: 'TITANS', sub: 'RUSTHOOK FIRST', accent: NEON.ember, locked: 'THE TITANS ARE STILL BEING BUILT' },
+      { id: 'titans', label: 'TITANS', sub: 'RUSTHOOK', accent: NEON.ember, locked: '' },
       { id: '1v1', label: '1V1', sub: 'BOT · QUICK MATCH', accent: NEON.magenta, locked: '1V1 COMES AFTER THE TITANS' },
       { id: 'practice', label: 'PRACTICE', sub: 'TARGET RINGS', accent: NEON.lime, locked: '' },
     ];
@@ -76,6 +77,7 @@ export class ConsoleSystem extends createSystem({}) {
           accent: d.accent,
           onPress: () => {
             if (d.id === 'practice') setMode('practice');
+            if (d.id === 'titans') setMode('titans');
           },
         }),
       );
@@ -84,7 +86,24 @@ export class ConsoleSystem extends createSystem({}) {
         b.onLockedPress = () => this.setStatus(d.locked, 2.5);
       }
       b.root.position.set((i - 1) * (cardW + gap), -0.004, 0.004);
-      this.root.add(b.root);
+      this.homeFace.add(b.root);
+      this.cards.push(b);
+    });
+
+    // The results face: the same three places.
+    const results = [
+      { id: 'rematch', label: 'REMATCH', sub: 'SAME TITAN', accent: NEON.ember, press: () => setMode('titans') },
+      { id: 'next', label: 'NEXT TITAN', sub: 'PISTONKAISER', accent: NEON.magenta, press: () => undefined },
+      { id: 'home', label: 'HOME', sub: 'BACK TO THE CARDS', accent: NEON.cyan, press: () => (game.result = null) },
+    ];
+    results.forEach((d, i) => {
+      const b = addButton(new PokeButton({ id: d.id, width: cardW, height: cardH, label: d.label, sub: d.sub, accent: d.accent, onPress: d.press }));
+      if (d.id === 'next') {
+        b.setLocked(true);
+        b.onLockedPress = () => this.setStatus('PISTONKAISER IS STILL BEING BUILT', 2.5);
+      }
+      b.root.position.set((i - 1) * (cardW + gap), -0.004, 0.004);
+      this.resultFace.add(b.root);
       this.cards.push(b);
     });
 
@@ -124,10 +143,36 @@ export class ConsoleSystem extends createSystem({}) {
     this.beam.scale.set(CONSOLE.width * (0.6 + 0.4 * e), bottom, 1);
     this.beam.position.set(0, bottom / 2, -CONSOLE.distance);
 
+    if (this.shownResult !== game.result) this.showFace(game.result);
+
     if (this.statusHold > 0) {
       this.statusHold -= delta;
-      if (this.statusHold <= 0) this.setStatus(HINT);
+      if (this.statusHold <= 0) this.setStatus(this.hint());
     }
+  }
+
+  /** Home cards, or the last fight's result. */
+  private showFace(r: FightResult | null): void {
+    this.shownResult = r;
+    this.homeFace.visible = !r;
+    this.resultFace.visible = !!r;
+    const text = r ? `${r.titan} ${r.won ? 'FELLED' : 'WINS'}` : 'FIRE FIGHT FLUX';
+    const color = r ? (r.won ? NEON.lime : NEON.danger) : NEON.magenta;
+    this.title.draw((g, w, h) => {
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = `900 ${h * 0.62}px ${FONT}`;
+      glowText(g, text, w / 2, h / 2, color);
+    });
+    this.setStatus(this.hint());
+  }
+
+  private hint(): string {
+    const r = game.result;
+    if (!r) return HINT;
+    const m = Math.floor(r.time / 60);
+    const sec = Math.floor(r.time % 60).toString().padStart(2, '0');
+    return r.won ? `DOWN IN ${m}:${sec}` : 'YOUR PAD WENT RED · GO AGAIN';
   }
 
   private place(): void {

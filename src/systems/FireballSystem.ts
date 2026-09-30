@@ -22,7 +22,7 @@ import { FIREBALL, NEON } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { game, handsOnMenu } from '../game/state.js';
 import { hands, SIDES, type Side } from '../input/hands.js';
-import { hitTarget, targets } from './TargetSystem.js';
+import { hittables } from '../game/hittables.js';
 
 const enum State {
   Hover,
@@ -63,7 +63,10 @@ function releaseVelocity(samples: Sample[], now: number, out: Vector3): Vector3 
   let best = 0;
   for (let i = samples.length - 1; i >= 0; i--) {
     const s = samples[i];
-    if (now - s.t > FIREBALL.releaseWindow) break;
+    // (The newest three samples always count: when frames drop, they can
+    // be older than the whole window by the time the hand opens. At full
+    // frame rate three samples are well inside it, so nothing changes.)
+    if (now - s.t > FIREBALL.releaseWindow && i < samples.length - 3) break;
     // Velocity over ~50 ms ending at this sample: steadier than frame-to-frame.
     for (let j = i - 1; j >= 0; j--) {
       const dt = s.t - samples[j].t;
@@ -87,7 +90,26 @@ export function ballStates(): string[] {
   return live.map((b) => STATE_NAMES[b.state]);
 }
 
+/** Both balls' positions and speeds, for the probes. */
+export function ballPoses(): { pos: number[]; speed: number }[] {
+  return live.map((b) => ({ pos: b.pos.toArray(), speed: b.vel.length() }));
+}
+
+/** A ball ORBITING a hand, if any: it's your shield, and it parries a
+ *  titan's fist (TitanSystem reads this). */
+export function orbitingBall(side: Side): Vector3 | null {
+  const b = live.find((x) => x.side === side);
+  return b && b.state === State.Orbit && b.group.visible ? b.pos : null;
+}
+
 let live: Ball[] = [];
+
+/** The last release's numbers, for the probes: its speed, and the newest
+ *  palm samples as [ms before the release, z]. */
+export let lastRelease: { speed: number; tracked: boolean; samples: number[][] } | null = null;
+export function releaseInfo(): typeof lastRelease {
+  return lastRelease;
+}
 
 export class FireballSystem extends createSystem({}) {
   private balls: Ball[] = [];
@@ -160,6 +182,11 @@ export class FireballSystem extends createSystem({}) {
         case State.Orbit: {
           if (justOpened || !shape.tracked) {
             releaseVelocity(b.samples, now, _v);
+            lastRelease = {
+              speed: _v.length(),
+              tracked: shape.tracked,
+              samples: b.samples.slice(-6).map((x) => [Math.round((now - x.t) * 1000), +x.p.z.toFixed(3)]),
+            };
             if (shape.tracked && _v.length() >= FIREBALL.minPunchSpeed) this.throwBall(b, _v);
             else b.state = State.Hover;
             break;
@@ -176,7 +203,10 @@ export class FireballSystem extends createSystem({}) {
           _prev.copy(b.pos);
           b.vel.y -= FIREBALL.gravity * delta;
           b.pos.addScaledVector(b.vel, delta);
-          this.checkTargets(_prev, b.pos);
+          if (this.checkHits(b, _prev, b.pos, false)) {
+            b.state = State.Returning;
+            break;
+          }
           if (b.age > FIREBALL.lifetime || b.pos.y < 0) {
             fx.sparks?.burst(b.pos, 20, this.color(b), 1);
             b.state = State.Hover;
@@ -192,8 +222,8 @@ export class FireballSystem extends createSystem({}) {
           const dist = _v.length();
           const step = Math.min(dist, Math.min(FIREBALL.returnSpeed, 3 + dist * 7) * delta);
           b.pos.addScaledVector(_v.normalize(), step);
-          // A recalled ball that passes back through a target still counts.
-          this.checkTargets(_prev, b.pos);
+          // A recalled ball that passes back through a ring still counts.
+          this.checkHits(b, _prev, b.pos, true);
           if (b.pos.distanceTo(h.palm) <= FIREBALL.catchRadius) {
             b.state = shape.closed ? State.Orbit : State.Hover;
             fx.sparks?.burst(b.pos, 12, this.color(b), 0.8);
@@ -253,8 +283,8 @@ export class FireballSystem extends createSystem({}) {
     // Aim assist: a throw within ~25° of a live target is bent 40% onto it.
     let best: Vector3 | null = null;
     let bestDot = Math.cos((25 * Math.PI) / 180);
-    for (const t of targets) {
-      if (!t.live) continue;
+    for (const t of hittables) {
+      if (!t.assist || !t.live()) continue;
       const to = _b.copy(t.pos).sub(b.pos).normalize();
       const d = to.dot(dir);
       if (d > bestDot) {
@@ -270,12 +300,17 @@ export class FireballSystem extends createSystem({}) {
     fx.sparks?.burst(b.pos, 24, this.color(b), 1.8);
   }
 
-  /** Swept test: the segment this frame against every live target. */
-  private checkTargets(from: Vector3, to: Vector3): void {
-    for (const t of targets) {
-      if (!t.live) continue;
-      if (segDist(from, to, t.pos) <= FIREBALL.radius + 0.2) hitTarget(t);
+  /** Swept test: the segment this frame against everything hittable.
+   *  True when the ball was spent on something and should come home. */
+  private checkHits(b: Ball, from: Vector3, to: Vector3, returning: boolean): boolean {
+    for (const t of hittables) {
+      if (returning && !t.onReturn) continue;
+      if (!t.live()) continue;
+      if (segDist(from, to, t.pos) > FIREBALL.radius + t.radius) continue;
+      const out = t.hit({ side: b.side, at: to, speed: b.vel.length() });
+      if (out === 'stop') return true;
     }
+    return false;
   }
 }
 

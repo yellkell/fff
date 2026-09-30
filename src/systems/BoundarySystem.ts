@@ -2,12 +2,14 @@
  * The rim walls: one neon panel standing on each edge of the platform,
  * invisible while you're well inside and glowing awake as your head nears
  * that edge (FIRE FIGHT 2's Guardian-style law, head only). No health
- * drain yet: there's no fight to lose. That arrives with the bosses.
+ * drain here: in a titan fight, TitanSystem drains you while your head is
+ * off the pad (game.headOutside).
  */
 
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import { BOUNDARY, NEON, PLATFORM_VERTICES } from '../config.js';
+import { game } from '../game/state.js';
 
 const _head = new Vector3();
 
@@ -52,13 +54,18 @@ export class BoundarySystem extends createSystem({}) {
 
   update(): void {
     this.camera.getWorldPosition(_head);
+    let outside = false;
     for (const w of this.walls) {
       // Signed distance past this edge (negative = inside).
       const d = (_head.x - w.ax) * w.nx + (_head.z - w.az) * w.nz;
+      if (d > 0) outside = true;
       const k = Math.min(1, Math.max(0, 1 + d / BOUNDARY.warnDistance));
       w.mesh.visible = k > 0.01;
       w.mat.opacity = 0.35 * k * k;
       w.mat.color.setHex(d > 0 ? NEON.danger : NEON.cyan);
     }
+    // The pad is convex: past any one edge is off it. (A titan fight drains
+    // you for it: TitanSystem.)
+    game.headOutside = outside;
   }
 }

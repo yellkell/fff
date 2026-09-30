@@ -7,8 +7,11 @@
  * lights the ball, a punch that opens throws it, a lazy open just drops it
  * back, a pinch while it's away recalls it and a held pinch catches it);
  * a palm turned up and looked at opens the WRIST PANEL, whose LEAVE goes
- * home; and from off-centre, RECENTRE puts the pad back under you. No
- * page errors throughout.
+ * home. Then TITANS: RUSTHOOK prints in; a jab lands on a still head,
+ * misses one that steps aside after the windup, and bounces off an open
+ * palm; the eye beam lands; a thrown ball hits it; and felling it brings
+ * the console back on its results face. Last, from off-centre, RECENTRE
+ * puts the pad back under you. No page errors throughout.
  * (The fist path is proven joint by joint in check:hands; the emulator's
  * hands only know open and pinch.)
  *
@@ -130,22 +133,32 @@ if (offered) {
       },
       { id, side },
     );
-  /** Move the right hand `dz` per frame for `frames` frames, then optionally
-   *  let go of the pinch — on the page's own frames. */
+  /** A punch: the right hand driven down −z at `speed` m/s for `secs`, on
+   *  the page's own frames and timed by its clock (a slow headless frame
+   *  mustn't turn a punch into a lazy push). With `release` the hand opens
+   *  halfway and keeps travelling, a follow-through: the emulator animates
+   *  a pinch opening over several frames, and a hand that's already
+   *  stopped by the time it reads as open is (rightly) a drop, not a throw. */
   const HOME = { x: 0.25, y: 1.5, z: -0.4 };
-  const swing = (dz, frames, release) =>
+  const swing = (release, from = HOME, speed = 3.5, secs = 0.36) =>
     page.evaluate(
-      async ({ dz, frames, release, HOME }) => {
+      async ({ release, from, speed, secs }) => {
         const d = window.IWER_DEVICE;
-        for (let i = 1; i <= frames; i++) {
-          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { ...HOME, z: HOME.z + dz * i } });
+        const t0 = performance.now();
+        for (;;) {
+          const t = Math.min(secs, (performance.now() - t0) / 1000);
+          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { ...from, z: from.z - speed * t } });
+          if (release && t >= secs / 2) d.hands.right.updatePinchValue(0);
+          await new Promise(requestAnimationFrame);
+          if (t >= secs) break;
         }
-        if (release) d.hands.right.updatePinchValue(0);
         for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame);
       },
-      { dz, frames, release, HOME },
+      { release, from, speed, secs },
     );
   const home = () => place('hand-right', HOME);
+  /** Chest height, centre-right: a straight punch from here is on the core. */
+  const AIM = { x: 0.12, y: 1.32, z: -0.4 };
   /** Turn the left palm up just below the eyes, in front of `head`
    *  (position, yaw), and look at it. */
   const PALM_UP = { x: 0, y: 0, z: 1, w: 0 };
@@ -170,9 +183,9 @@ if (offered) {
   let s = await S();
   check('you arrive at the console', s.mode === 'home' && s.buttons.practice?.active, s.mode);
   check('no balls at the console', (await page.evaluate(() => window.__flux.balls())).length === 2);
-  await poke('titans');
+  await poke('1v1');
   s = await S();
-  check('a locked card refuses', s.mode === 'home' && s.buttons.titans.presses === 0 && s.buttons.titans.refusals === 1);
+  check('a locked card refuses', s.mode === 'home' && s.buttons['1v1'].presses === 0 && s.buttons['1v1'].refusals === 1);
   await settle(350); // one poke, one action: past the cooldown
   await sweep('practice');
   s = await S();
@@ -199,8 +212,8 @@ if (offered) {
   check('opening a still hand drops it back to hover', (await R()).ball === 'hover');
   await pinch(1);
   await settle();
-  // A punch: 6 cm a step down −z, opening at the end.
-  await swing(-0.06, 8, true);
+  // A punch, opening at the end.
+  await swing(true);
   r = await R();
   check('a punch that opens throws it', r.ball === 'flying', r.ball);
   await home();
@@ -230,6 +243,105 @@ if (offered) {
   await palmDown();
   check('palm turned over: the wrist panel closes', !(await S()).wrist);
 
+  await page.waitForTimeout(500);
+
+  // ── TITANS ──
+  const T = () => page.evaluate(() => window.__flux.titan());
+  const debug = (patch) => page.evaluate((p) => Object.assign(window.__flux.titanDebug, p), patch);
+  const until = async (fn, ms = 8000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      const t = await T();
+      if (fn(t)) return t;
+      await page.waitForTimeout(40);
+    }
+    return T();
+  };
+  // Hands out of the way unless a test puts them somewhere.
+  const handsDown = async () => {
+    await place('hand-left', { x: -0.55, y: 0.5, z: 0.2 }, PALM_DOWN);
+    await place('hand-right', { x: 0.55, y: 0.5, z: 0.2 }, PALM_DOWN);
+  };
+  await debug({ hold: true });
+  await poke('titans');
+  let t = await T();
+  check('poking TITANS starts the fight', (await S()).mode === 'titans' && (t.phase === 'rising' || t.phase === 'fight'), t.phase);
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('RUSTHOOK prints into the room', t.phase === 'fight');
+
+  await debug({ force: 'jab' });
+  t = await until((x) => x.act === null && x.hitsTaken > 0, 10000);
+  check('a jab lands on a head that stays put', t.hitsTaken === 1 && t.playerHp < 1, `your health ${t.playerHp.toFixed(2)}`);
+
+  await debug({ force: 'jab' });
+  await until((x) => x.act?.stage === 'strike');
+  await place('headset', { x: 0.55, y: 1.6, z: 0 });
+  t = await until((x) => x.act === null || x.act.stage === 'recover');
+  await settle(300);
+  t = await T();
+  check('stepping aside after the windup makes it miss', t.hitsTaken === 1, `hits taken ${t.hitsTaken}`);
+  await place('headset', { x: 0, y: 1.6, z: 0 });
+  await until((x) => x.act === null);
+
+  // An open palm facing it, in front of your face.
+  const PALM_OUT = { x: 0.5, y: 0, z: 0, w: 0.8660254 };
+  await place('hand-left', { x: 0, y: 1.5, z: -0.3 }, PALM_OUT);
+  await settle(150);
+  const pl = await page.evaluate(() => window.__flux.hands().left);
+  const want = [0.0, 1.55, -0.28];
+  const lt = await page.evaluate(() => window.IWER_DEVICE.remote.dispatch('get_transform', { device: 'hand-left' }));
+  await place('hand-left', { x: lt.position.x + want[0] - pl.palm[0], y: lt.position.y + want[1] - pl.palm[1], z: lt.position.z + want[2] - pl.palm[2] }, PALM_OUT);
+  await settle(150);
+  const pn2 = (await page.evaluate(() => window.__flux.hands().left.palmNormal));
+  await debug({ force: 'jab' });
+  t = await until((x) => x.act === null && x.blocks > 0, 10000);
+  check('an open palm in its path blocks the jab', t.blocks === 1 && t.hitsTaken === 1, `palm facing z ${pn2[2].toFixed(2)}, blocks ${t.blocks}, hits ${t.hitsTaken}`);
+  await handsDown();
+  await until((x) => x.act === null);
+  await settle(1300); // past the stagger
+
+  await debug({ force: 'beam' });
+  t = await until((x) => x.act === null && x.hitsTaken > 1, 10000);
+  check('the eye beam lands on a head that stays put', t.hitsTaken === 2, `hits taken ${t.hitsTaken}`);
+
+  // Your turn: light the right ball and punch it at the titan's core.
+  await place('hand-right', AIM);
+  await settle(400);
+  await pinch(1);
+  await settle(300);
+  await swing(true, AIM);
+  t = await until((x) => x.hitsLanded + x.armourHits > 0, 3000);
+  check('a thrown ball hits the titan', t.hitsLanded + t.armourHits > 0, `${t.hitsLanded} on a weak point, ${t.armourHits} on armour, its health ${t.hp.toFixed(2)}; release ${JSON.stringify(await page.evaluate(() => window.__flux.releaseInfo()))}`);
+  check('the weak points take it', t.hitsLanded > 0 && t.hp < 1);
+
+  // Fell it: one hit from done, then a ball or three till one lands.
+  await debug({ setHp: 0.01 });
+  for (let i = 0; i < 3; i++) {
+    await place('hand-right', AIM);
+    await settle(900); // the last ball's home
+    const bPre = await page.evaluate(() => window.__flux.balls()[1]);
+    await pinch(1);
+    await settle(300);
+    const bLit = await page.evaluate(() => `${window.__flux.balls()[1]}/${window.__flux.hands().right.closed}`);
+    await swing(true, AIM);
+    const b0 = `${bPre} → ${bLit} → ` + (await page.evaluate(() => window.__flux.balls()[1]));
+    t = await until((x) => x.phase === 'falling' || x.phase === 'off', 2500);
+    if (t.phase !== 'fight') break;
+    console.log(`      (throw ${i + 1} missed: ball was ${b0} after the punch; ${t.hitsLanded} weak, ${t.armourHits} armour; release ${JSON.stringify(await page.evaluate(() => window.__flux.releaseInfo()))})`);
+  }
+  check('the last hit fells it', t.phase === 'falling' || t.phase === 'off', `${t.phase} · ${t.hitsLanded} weak, ${t.armourHits} armour · balls ${(await page.evaluate(() => window.__flux.balls())).join(',')}`);
+  await until((x) => x.phase === 'off', 5000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('the console comes back on its results face', s.mode === 'home' && t.result?.won === true && s.buttons.rematch.active, JSON.stringify(t.result));
+  await poke('home');
+  s = await S();
+  check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);
+  await debug({ hold: false });
+
+  // RECENTRE last: it moves the world, and every poke above assumes it hasn't.
   // ── RECENTRE, from off to one side and turned ──
   const off = { x: 0.4, z: 0.3, yaw: (40 * Math.PI) / 180 };
   await place('headset', { x: off.x, y: 1.6, z: off.z }, { x: 0, y: Math.sin(off.yaw / 2), z: 0, w: Math.cos(off.yaw / 2) });
@@ -245,7 +357,6 @@ if (offered) {
     Math.hypot(head.pos[0], head.pos[2]) < 0.03 && Math.abs(yaw) < 0.05,
     `head at (${head.pos[0].toFixed(3)}, ${head.pos[2].toFixed(3)}), yaw ${yaw.toFixed(3)}`,
   );
-  await page.waitForTimeout(500);
   if (shots) {
     const file = join(here, 'smoke.png');
     writeFileSync(file, await page.screenshot());

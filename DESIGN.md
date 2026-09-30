@@ -178,6 +178,43 @@ only the finish changed (`titans/neon.ts`, replacing FF2's skins):
 - **Open:** VULTURE's wings rest spread, about 3 m across, until its
   entrance folds them. Check that against a real room.
 
+### 3.5 RUSTHOOK, as built
+
+The first fight is in (`src/systems/TitanSystem.ts`), on the Flux side
+only: FF2's `delivery.ts` stays FF2's.
+
+- **The strike** (`titans/strike.ts`): WINDUP → STRIKE → RECOVER. At the
+  windup's end your head is snapshotted and the fist flies a path to it:
+  the **jab** straight, the **hook** arcing in from its side, the
+  **overhand** down from above, the **sweep** level through you and out
+  the far side. The **beam** tracks you, locks 62% through its windup,
+  then fires down the locked line.
+- **The reach** (`titans/ik.ts`): a two-bone solve puts the fist on the
+  point; past arm's length the forearm telescopes (up to 0.5 m per unit
+  of rig scale, drawn as a lit piston) and the root lunges in (up to
+  0.85 m, never onto your pad). A committed blow stops turning to follow
+  you.
+- **Judging:** swept frame to frame, *after* the pose, so the frame the
+  fist arrives on is always judged at any frame rate. Hands first: a ball
+  orbiting your hand, or an open palm facing into the fist's travel
+  (dot > 0.3, within 9 cm of its path), blocks and staggers it for 1.2 s.
+  Then your head (an 11 cm sphere): a hit.
+- **Its weak points** are FF2's `'both'`: visor and chest core, blinking
+  all fight. The core's hit sphere is about twice its drawn size, because a
+  hand-thrown ball leaves an orbit up to 17 cm off your palm. Armour sits
+  behind the core so it never steals a clean shot. 12 hits.
+- **Your health** falls with each blow (jab 15%, hook 20%, overhand 25%,
+  sweep 20%, beam 20%) and drains 12%/s while your head is off the pad.
+  The platform rim goes red as it falls, and pulses under 30%.
+- **In and out:** the titan prints in from the floor up under a scan
+  ring (a clipping plane), and un-prints top-down when the fight ends.
+- **The grammar:** never the same move twice running, weighted jab 3,
+  hook 3, overhand 2, sweep 2, beam 2. FF2's other laws (damping repeated
+  dodges, threatening the last safe spot) come with the gauntlet.
+- **Open, to tune on a headset:** every windup and strike time, the
+  damage, the gap between blows, how generous the palm block and the core
+  are, and whether 2.2 m reads as *in your face* enough.
+
 ---
 
 ## 4 · 1v1 — the second mode
@@ -250,8 +287,8 @@ laid out on your floor.
 
 ## 8 · Build order
 
-Steps 1 and 2 are done, and so are the console and wrist panel (§2.1)
-and the titans' neon (§3.4; see the README).
+Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
+RUSTHOOK's fight with the palm block (§3.5). See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

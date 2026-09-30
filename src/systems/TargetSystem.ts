@@ -9,6 +9,7 @@ import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from 'three';
 import { NEON, TARGETS } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
+import { addHittable } from '../game/hittables.js';
 import { game } from '../game/state.js';
 
 export interface Target {
@@ -53,6 +54,17 @@ export class TargetSystem extends createSystem({}) {
       const t: Target = { group, pos: group.position, live: false, respawnIn: 0.2 * i, age: 0 };
       group.visible = false;
       targets.push(t);
+      addHittable({
+        pos: t.pos,
+        radius: TARGETS.radius,
+        live: () => t.live,
+        assist: true,
+        onReturn: true,
+        hit: () => {
+          hitTarget(t);
+          return 'through';
+        },
+      });
     }
   }
 

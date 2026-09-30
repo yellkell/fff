@@ -11,11 +11,12 @@ import { fx, Sparks } from './fx/neon.js';
 import { game } from './game/state.js';
 import { BoundarySystem } from './systems/BoundarySystem.js';
 import { ConsoleSystem } from './systems/ConsoleSystem.js';
-import { ballStates, FireballSystem } from './systems/FireballSystem.js';
+import { ballPoses, ballStates, FireballSystem, releaseInfo } from './systems/FireballSystem.js';
 import { hands } from './input/hands.js';
 import { HandSystem } from './systems/HandSystem.js';
 import { PokeSystem } from './systems/PokeSystem.js';
 import { TargetSystem } from './systems/TargetSystem.js';
+import { titanDebug, titanStats, TitanSystem } from './systems/TitanSystem.js';
 import { WristSystem } from './systems/WristSystem.js';
 import { buttonPose, buttons } from './ui/poke.js';
 
@@ -55,6 +56,7 @@ World.create(container, {
     .registerSystem(WristSystem)
     .registerSystem(PokeSystem)
     .registerSystem(TargetSystem)
+    .registerSystem(TitanSystem)
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
     .registerSystem(FxSystem);
@@ -66,7 +68,11 @@ World.create(container, {
       right: { tracked: hands.right.shape.tracked, closed: hands.right.shape.closed, fresh: hands.right.fresh, curl: hands.right.shape.last?.curl, pinch: hands.right.shape.last?.pinch, palm: hands.right.palm.toArray(), palmNormal: hands.right.palmNormal.toArray(), indexTip: hands.right.indexTip.toArray() },
     }),
     balls: ballStates,
+    ballPoses,
+    releaseInfo,
     mode: () => game.mode,
+    titan: () => ({ ...titanStats, playerHp: game.playerHp, result: game.result }),
+    titanDebug,
     wristOpen: () => game.wristOpen,
     buttons: () =>
       Object.fromEntries(buttons.map((b) => [b.id, { ...buttonPose(b), active: b.active, locked: b.locked, presses: b.presses, refusals: b.refusals }])),

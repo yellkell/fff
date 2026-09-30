@@ -104,6 +104,33 @@ function band(rings: Ring[]): Mesh {
 
 const lit = (hex: number, k: number): Color => new Color(hex).multiplyScalar(k);
 
+/**
+ * THE DANGER RIM: the same tube and halo in red, laid over the rim and
+ * faded in as your health falls, so your own platform tells you how you're
+ * doing without a number in your face. Pulses when you're nearly done.
+ */
+const danger = {
+  core: null as MeshBasicMaterial | null,
+  halo: null as MeshBasicMaterial | null,
+  /** The cyan rim's own materials: they dim as the red comes up, or the
+   *  red (added on top) would only ever read as a paler cyan. */
+  cyan: [] as MeshBasicMaterial[],
+};
+
+/** 0 = you're fine (no red), 1 = one hit from the floor. */
+export function setPlatformDanger(k: number, time = 0): void {
+  if (!danger.core || !danger.halo) return;
+  k = Math.min(1, Math.max(0, k));
+  const pulse = k > 0.7 ? 0.75 + 0.25 * Math.sin(time * 9) : 1;
+  // Red comes up fast and cyan goes down fast: by half health the rim
+  // should already read red, not a paler cyan.
+  const o = Math.min(1, k * 1.8) * pulse;
+  danger.core.opacity = o;
+  danger.halo.opacity = o;
+  danger.core.visible = danger.halo.visible = o > 0.01;
+  for (const m of danger.cyan) m.color.setScalar(Math.max(0.12, 1 - 1.6 * k));
+}
+
 export function buildPlatform(): Group {
   const g = new Group();
   g.name = 'platform';
@@ -134,25 +161,39 @@ export function buildPlatform(): Group {
   for (const t of [-1, -0.6, -0.3, 0, 0.3, 0.6, 1]) {
     halo.push({ d: t * R.glowWidth, y: LIFT, c: lit(NEON.cyan, R.glowPeak * (1 - Math.abs(t)) ** 2) });
   }
-  g.add(band(halo));
+  const haloMesh = band(halo);
+  g.add(haloMesh);
 
   // The tube: solid, a touch whiter than the halo so it reads as the source.
   const core = new Color(NEON.cyan).lerp(new Color(NEON.hot), 0.35);
-  g.add(
-    band([
-      { d: -R.coreWidth / 2, y: LIFT * 1.5, c: core },
-      { d: R.coreWidth / 2, y: LIFT * 1.5, c: core },
-    ]),
-  );
+  const coreMesh = band([
+    { d: -R.coreWidth / 2, y: LIFT * 1.5, c: core },
+    { d: R.coreWidth / 2, y: LIFT * 1.5, c: core },
+  ]);
+  g.add(coreMesh);
 
   // The curb: lit at the floor, fading as it rises.
-  g.add(
-    band([
-      { d: 0, y: 0, c: lit(NEON.cyan, 0.9) },
-      { d: 0, y: R.lipHeight * 0.4, c: lit(NEON.cyan, 0.45) },
-      { d: 0, y: R.lipHeight, c: lit(NEON.cyan, 0) },
-    ]),
+  const curbMesh = band([
+    { d: 0, y: 0, c: lit(NEON.cyan, 0.9) },
+    { d: 0, y: R.lipHeight * 0.4, c: lit(NEON.cyan, 0.45) },
+    { d: 0, y: R.lipHeight, c: lit(NEON.cyan, 0) },
+  ]);
+  g.add(curbMesh);
+  danger.cyan = [haloMesh, coreMesh, curbMesh].map((m) => m.material as MeshBasicMaterial);
+
+  // The danger rim over it all, hidden until you're hurt.
+  const red = new Color(NEON.danger);
+  const dHalo = band(
+    [-1, -0.5, 0, 0.5, 1].map((t) => ({ d: t * R.glowWidth * 1.2, y: LIFT * 2, c: red.clone().multiplyScalar((1 - Math.abs(t)) ** 2) })),
   );
+  const dCore = band([
+    { d: -R.coreWidth * 0.6, y: LIFT * 2.5, c: red.clone().lerp(new Color(NEON.hot), 0.08) },
+    { d: R.coreWidth * 0.6, y: LIFT * 2.5, c: red.clone().lerp(new Color(NEON.hot), 0.08) },
+  ]);
+  danger.halo = dHalo.material as MeshBasicMaterial;
+  danger.core = dCore.material as MeshBasicMaterial;
+  g.add(dHalo, dCore);
+  setPlatformDanger(0);
 
   // The magenta stripe just inside.
   const m = lit(NEON.magenta, 0.7);

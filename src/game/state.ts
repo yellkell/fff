@@ -3,11 +3,19 @@
  *
  *   home      the console is up; no fireballs, no targets.
  *   practice  the target rings; the console has sunk away.
+ *   titans    a titan fight (TitanSystem).
  *
- * TITANS and 1V1 join this list as they're built.
+ * 1V1 joins this list when it's built.
  */
 
-export type Mode = 'home' | 'practice';
+export type Mode = 'home' | 'practice' | 'titans';
+
+export interface FightResult {
+  titan: string;
+  won: boolean;
+  /** Seconds the fight took. */
+  time: number;
+}
 
 export const game = {
   mode: 'home' as Mode,
@@ -15,6 +23,12 @@ export const game = {
   wristOpen: false,
   /** Bumped on every recentre, so anything placed from your head re-places. */
   recentred: 0,
+  /** Your health in a fight, 0–1 (1 outside one). */
+  playerHp: 1,
+  /** Your head is off the platform (BoundarySystem). */
+  headOutside: false,
+  /** How the last fight ended; the console shows it until you move on. */
+  result: null as FightResult | null,
 };
 
 export function setMode(mode: Mode): void {

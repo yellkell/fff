@@ -26,6 +26,8 @@ jobs:
         run: npm run build
       - name: The hand-shape reader
         run: npm run check:hands
+      - name: The titans' reach and strikes
+        run: npm run check:strike
       - run: npx playwright install --with-deps chromium
       - name: Start the dev server
         run: |
