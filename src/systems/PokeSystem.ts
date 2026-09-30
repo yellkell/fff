@@ -11,6 +11,7 @@
 import { createSystem } from '@iwsdk/core';
 import { Matrix4, type Sprite, Vector3 } from 'three';
 import { MENU, NEON } from '../config.js';
+import { sfx } from '../audio/sfx.js';
 import { glowSprite } from '../fx/neon.js';
 import { hands, SIDES, type Side } from '../input/hands.js';
 import { buttons, type PokeButton, shown } from '../ui/poke.js';
@@ -30,6 +31,8 @@ export class PokeSystem extends createSystem({}) {
   private contacts = new Map<PokeButton, Record<Side, Contact>>();
   private dots = {} as Record<Side, Sprite>;
   private cooldown = 0;
+  /** Last frame's hover per button, for the tick as a finger arrives. */
+  private lastHover = new Map<PokeButton, number>();
 
   init(): void {
     for (const side of SIDES) {
@@ -88,9 +91,13 @@ export class PokeSystem extends createSystem({}) {
         if (!k.fired && _p.z < -MENU.pressDepth && this.cooldown <= 0) {
           k.fired = true;
           this.cooldown = MENU.cooldown;
+          sfx(b.locked ? 'uiDenied' : 'uiClick', _c.setFromMatrixPosition(b.root.matrixWorld));
           b.fire();
         }
       }
+      // A soft tick as a fingertip arrives over it.
+      if ((this.lastHover.get(b) ?? 0) < 0.4 && b.hover >= 0.4) sfx('uiHover', _c.setFromMatrixPosition(b.root.matrixWorld));
+      this.lastHover.set(b, b.hover);
       b.animate(delta);
     }
 

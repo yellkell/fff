@@ -19,6 +19,7 @@
 import { createSystem } from '@iwsdk/core';
 import { Group, Vector3 } from 'three';
 import { FIREBALL, NEON } from '../config.js';
+import { hum, sfx } from '../audio/sfx.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { game, handsOnMenu } from '../game/state.js';
 import { hands, SIDES, type Side } from '../input/hands.js';
@@ -152,6 +153,7 @@ export class FireballSystem extends createSystem({}) {
         b.samples.length = 0;
         b.pos.copy(hands[b.side].palm);
         b.group.visible = false;
+        hum(`ball-${b.side}`, 'ball', b.pos, 0);
       }
       return;
     }
@@ -176,6 +178,7 @@ export class FireballSystem extends createSystem({}) {
             b.state = State.Orbit;
             b.spin = 0;
             fx.sparks?.burst(b.pos, 18, this.color(b), 1.2);
+            sfx('ignite', b.pos);
           }
           break;
         }
@@ -188,7 +191,10 @@ export class FireballSystem extends createSystem({}) {
               samples: b.samples.slice(-6).map((x) => [Math.round((now - x.t) * 1000), +x.p.z.toFixed(3)]),
             };
             if (shape.tracked && _v.length() >= FIREBALL.minPunchSpeed) this.throwBall(b, _v);
-            else b.state = State.Hover;
+            else {
+              b.state = State.Hover;
+              sfx('drop', b.pos);
+            }
             break;
           }
           b.spin = Math.min(1, b.spin + delta / FIREBALL.orbitSpinUp);
@@ -209,10 +215,12 @@ export class FireballSystem extends createSystem({}) {
           }
           if (b.age > FIREBALL.lifetime || b.pos.y < 0) {
             fx.sparks?.burst(b.pos, 20, this.color(b), 1);
+            sfx('fizzle', b.pos);
             b.state = State.Hover;
             b.pos.copy(h.palm);
           } else if (justClosed && b.recallLock <= 0) {
             b.state = State.Returning;
+            sfx('recall', h.palm);
           }
           break;
         }
@@ -227,6 +235,7 @@ export class FireballSystem extends createSystem({}) {
           if (b.pos.distanceTo(h.palm) <= FIREBALL.catchRadius) {
             b.state = shape.closed ? State.Orbit : State.Hover;
             fx.sparks?.burst(b.pos, 12, this.color(b), 0.8);
+            sfx('catch', b.pos);
           }
           break;
         }
@@ -243,6 +252,9 @@ export class FireballSystem extends createSystem({}) {
       const lit = b.state !== State.Hover;
       b.group.scale.setScalar(lit ? 1 : 0.55);
       b.core.visible = lit;
+      // Its hum: quiet while it orbits, singing higher as it flies.
+      const orbit = b.state === State.Orbit;
+      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible ? (away ? 0.09 : orbit ? 0.04 + 0.03 * b.spin : 0) : 0, away ? 1.5 : 1 + 0.25 * b.spin);
       if (away) {
         b.trail -= delta;
         if (b.trail <= 0) {
@@ -295,6 +307,7 @@ export class FireballSystem extends createSystem({}) {
     if (best) dir.lerp(_b.copy(best).sub(b.pos).normalize(), 0.4).normalize();
     b.vel.copy(dir).multiplyScalar(speed);
     b.state = State.Flying;
+    sfx('throw', b.pos);
     b.age = 0;
     b.recallLock = FIREBALL.recallLockout;
     fx.sparks?.burst(b.pos, 24, this.color(b), 1.8);

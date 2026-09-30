@@ -11,8 +11,8 @@ export default defineConfig({
   server: { host: true, port: 5173 },
   build: {
     target: 'esnext',
-    // The titan viewer ships too, so the neon titans can be looked at on
-    // any screen (the Pages site's /titans.html).
-    rollupOptions: { input: { main: 'index.html', titans: 'titans.html' } },
+    // The titan viewer and the sound board ship too, so the neon titans
+    // can be looked at, and every sound heard, on any screen.
+    rollupOptions: { input: { main: 'index.html', titans: 'titans.html', sounds: 'sounds.html' } },
   },
 });

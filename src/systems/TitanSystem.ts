@@ -38,6 +38,7 @@ import {
   Vector3,
 } from 'three';
 import { setPlatformDanger } from '../arena/platform.js';
+import { hum, sfx } from '../audio/sfx.js';
 import { FIGHT, FIREBALL, NEON, STAGE } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { addHittable } from '../game/hittables.js';
@@ -113,6 +114,8 @@ const ease = (t: number): number => {
   return u * u * (3 - 2 * u);
 };
 const rand = (lo: number, hi: number): number => lo + Math.random() * (hi - lo);
+/** How big each blow's whoosh is. */
+const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, beam: 0 };
 
 export class TitanSystem extends createSystem({}) {
   private phase: Phase = 'off';
@@ -133,6 +136,7 @@ export class TitanSystem extends createSystem({}) {
   private fightTime = 0;
   private flinch = 0;
   private weakFlash = 0;
+  private beat = 0;
 
   /** Clipping for the print-in: everything below the plane's height shows. */
   private readonly clip = new Plane(new Vector3(0, -1, 0), 0);
@@ -279,13 +283,18 @@ export class TitanSystem extends createSystem({}) {
     if (!this.rig) return;
 
     this.pose(delta);
+    this.sound(delta);
     // Judge the blow where it IS this frame, after posing, so the frame
     // the fist arrives on you is always judged, whatever the frame rate.
     const a = this.act;
     if (this.phase === 'fight' && a && a.stage === 'strike') {
       if (a.def.limb === 'eye') this.beamFire(a);
       else this.judgeFist(a);
-      if (a.stage === 'strike' && a.t >= a.def.strike) this.toRecover(a);
+      if (a.stage === 'strike' && a.t >= a.def.strike) {
+        // Missed you: it goes past your head.
+        if (!a.landed && a.def.limb !== 'eye') sfx('whiff', this.arms[a.def.limb].at);
+        this.toRecover(a);
+      }
     }
     this.updateHud();
     this.updateFlash(delta);
@@ -326,7 +335,12 @@ export class TitanSystem extends createSystem({}) {
         this.planLunge(a);
         a.stage = 'strike';
         a.t = 0;
-        if (d.limb !== 'eye') fx.sparks?.burst(this.arms[d.limb].at, 10, this.look.accent, 1.4);
+        if (d.limb !== 'eye') {
+          fx.sparks?.burst(this.arms[d.limb].at, 10, this.look.accent, 1.4);
+          sfx('swing', this.arms[d.limb].at, SWING[d.path]);
+        } else {
+          sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
+        }
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
       this.act = null;
@@ -351,6 +365,10 @@ export class TitanSystem extends createSystem({}) {
     if (def.limb !== 'eye') {
       const arm = this.arms[def.limb];
       a.outward.set(arm.side, 0, 0).transformDirection(this.rig!.root.matrixWorld);
+      // The tell, from the fist that's coming: your ears know which side.
+      sfx('windup', arm.at, def.windup);
+    } else {
+      sfx('beamCharge', this.rig!.eyeFx.getWorldPosition(_v), def.windup);
     }
     this.act = a;
   }
@@ -407,6 +425,7 @@ export class TitanSystem extends createSystem({}) {
       a.landed = true;
       this.hurt(a.def.damage, true);
       fx.sparks?.burst(to, 30, NEON.danger, 2);
+      sfx('hitTaken');
       this.toRecover(a);
     }
   }
@@ -414,6 +433,8 @@ export class TitanSystem extends createSystem({}) {
   private blocked(a: Act, at: Vector3): void {
     titanStats.blocks++;
     fx.sparks?.burst(at, 40, NEON.hot, 2.4);
+    sfx('block', at);
+    sfx('titanGrunt', this.rig!.head.getWorldPosition(_w));
     this.stagger = FIGHT.stagger;
     this.flinch = 1;
     a.lunge = 0;
@@ -432,6 +453,7 @@ export class TitanSystem extends createSystem({}) {
     if (!a.locked && u >= FIGHT.beamLock) {
       a.locked = true;
       fx.sparks?.burst(rig.eyeFx.getWorldPosition(_v), 12, this.look.accent, 0.8);
+      sfx('beamLock', _v);
     }
     rig.eyeFx.getWorldPosition(_v);
     this.stretch(this.aimLine, _v, a.to, a.locked ? 0.006 : 0.003);
@@ -469,11 +491,13 @@ export class TitanSystem extends createSystem({}) {
         a.landed = true;
         titanStats.blocks++;
         this.stagger = FIGHT.stagger * 0.6;
+        sfx('block', end);
       }
       if (Math.random() < 0.6) fx.sparks?.burst(end, 4, NEON.hot, 1.6);
     } else if (!a.landed && segmentDistance(eye, far, _head) <= FIGHT.headRadius + FIGHT.beamRadius) {
       a.landed = true;
       this.hurt(a.def.damage, true);
+      sfx('hitTaken');
     }
   }
 
@@ -497,6 +521,7 @@ export class TitanSystem extends createSystem({}) {
     this.weakFlash = 1;
     this.flinch = Math.max(this.flinch, 0.7);
     fx.sparks?.burst(at, 50, this.look.accent, 2.6);
+    sfx('weakHit', at);
     if (this.hp <= 0) this.enter('falling');
     return 'stop';
   }
@@ -504,6 +529,7 @@ export class TitanSystem extends createSystem({}) {
   private armourHit(at: Vector3): 'stop' {
     titanStats.armourHits++;
     fx.sparks?.burst(at, 16, this.look.line, 1.2);
+    sfx('armour', at);
     return 'stop';
   }
 
@@ -714,6 +740,13 @@ export class TitanSystem extends createSystem({}) {
   private enter(p: Phase): void {
     this.phase = p;
     this.phaseT = 0;
+    const at = this.rig?.head.getWorldPosition(_w);
+    if (p === 'rising' && this.rig) sfx('titanPrint', this.rig.root.position);
+    if (p === 'fight') sfx('titanRoar', at);
+    if (p === 'falling') {
+      sfx('titanFall', at);
+      sfx(this.hp <= 0 ? 'win' : 'lose');
+    }
     if (p === 'falling') {
       this.act = null;
       this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
@@ -739,6 +772,7 @@ export class TitanSystem extends createSystem({}) {
   }
 
   private despawn(): void {
+    hum('titan', 'engine', this.armour.pos, 0);
     this.rig?.dispose();
     this.rig = null;
     this.arms = [];
@@ -749,6 +783,17 @@ export class TitanSystem extends createSystem({}) {
     this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
     game.playerHp = 1;
     setPlatformDanger(0);
+  }
+
+  /** The engine idling in its chest, and your heart when you're nearly done. */
+  private sound(delta: number): void {
+    const level = this.phase === 'fight' ? 0.06 : this.phase === 'rising' ? 0.06 * (this.phaseT / FIGHT.riseTime) : 0;
+    hum('titan', 'engine', this.armour.pos, level, 1 + 0.4 * this.lunge);
+    this.beat -= delta;
+    if (this.phase === 'fight' && game.playerHp < 0.3 && this.beat <= 0) {
+      sfx('heartbeat');
+      this.beat = 0.55 + game.playerHp * 1.5;
+    }
   }
 
   private updateHud(): void {

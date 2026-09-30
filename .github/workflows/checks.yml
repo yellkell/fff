@@ -42,3 +42,5 @@ jobs:
         run: npm run check:smoke
       - name: Titans — every rig builds in neon, fits the room, stays in budget
         run: npm run check:titans
+      - name: Sounds — every cue renders, audibly, without clipping
+        run: npm run check:sounds

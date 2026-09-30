@@ -85,12 +85,47 @@ joints directly.
   shape is there from day one. Each card becomes a station in THE
   CONSTELLATION (§6): TITANS → the BOSS GATE, 1V1 → the DUEL RING.
 - **THE WRIST PANEL.** Left palm up, looked at, held for 0.2 s: it opens
-  10 cm above your palm, poked with your right hand. **LEAVE** (back to
-  the console) and **RECENTRE** (turn and slide the world so the pad is
-  under you, facing where you look). Forfeit and mute join it when there
-  is a fight and a sound to have.
+  above your palm, poked with your right hand. Two by two: **LEAVE** (back
+  to the console; in a fight, a forfeit) and **RECENTRE** (turn and slide
+  the world so the pad is under you, facing where you look), then
+  **SOUND** and **MUSIC**. It draws over every other panel: it's always
+  the nearest.
 - **Later:** results after every fight (REMATCH · NEXT TITAN · HOME), a
   first-run hands check, settings.
+
+### 2.2 Sound
+
+Built (`src/audio/sfx.ts`). Every sound is synthesised live with WebAudio,
+from FF2's building blocks (tone, noise, clank, swell, growl, servo) plus
+two neon ones (a plucked synth note and an electric zap): no files.
+
+- **Sound stands in for haptics.** Every press, catch, block and hit has
+  one, next to its light.
+- **Sound comes from where it happens.** Positioned sounds go through an
+  HRTF panner, with the listener on your head. The titan's windup whines
+  from the fist that's about to swing, so you hear which side before you
+  see it, and the beam charges from its eye. Your own hits play in your
+  ears.
+- **Tells are loud.** The windup and the beam charge rise across their
+  whole windup, so the strike lands at the top of the sound; the beam's
+  lock is a sharp double blip: *move now*.
+- **Hums** for the continuous things: each ball hums at its hand (higher
+  as it flies), and the titan's engine idles in its chest and revs as it
+  lunges.
+- **SOUND** on the wrist panel mutes it all; the choice is remembered.
+- **The sound board** (`sounds.html`, in the Pages build) plays every
+  sound on a tap; `check:sounds` renders each offline and holds it
+  audible, unclipped and short.
+- **Music** (`src/audio/music.ts`, cued by `MusicSystem`): *Overtime* at
+  the console; FF2's *Aim* in practice; one of FF2's six battle tracks
+  per titan fight, never the same twice running; FF2's victory sting as a
+  titan falls to you, ringing on over the results for up to 6.5 s before
+  the console's track fades back (a lost fight goes quiet instead). As in
+  FF2, music plays through WebAudio, never an `<audio>` element (a Meta
+  Browser media-session crash). Tracks decode at 24 kHz and only the one
+  playing is kept (full-rate PCM can run a Quest tab out of memory), and
+  each is **loudness-matched** as it decodes, so a hot master and a quiet
+  one sit at the same level. **MUSIC** on the wrist panel mutes it.
 
 ---
 
