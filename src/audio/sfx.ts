@@ -72,6 +72,11 @@ if (typeof window !== 'undefined') {
   }
 }
 
+/** The shared AudioContext, once there is one (the music plays through it). */
+export function audioContext(): AudioContext | null {
+  return getCtx();
+}
+
 export function audioState(): string {
   return ctx?.state ?? 'none';
 }

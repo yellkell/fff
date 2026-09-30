@@ -5,7 +5,8 @@
  *
  *   LEAVE     end what you're doing and go back to the console.
  *   RECENTRE  put the platform under your feet, facing where you look.
- *   SOUND     on or off (remembered).
+ *   SOUND     the sound effects on or off (remembered).
+ *   MUSIC     the music on or off (remembered).
  *
  * Opening takes the pose held for a moment, with a looser pose to stay
  * open, so a hand passing through palm-up on the way to a punch doesn't
@@ -16,6 +17,7 @@
 import { createSystem } from '@iwsdk/core';
 import { Group, Vector3 } from 'three';
 import { NEON, WRIST } from '../config.js';
+import { isMusicMuted, setMusicMuted } from '../audio/music.js';
 import { isMuted, setMuted, sfx } from '../audio/sfx.js';
 import { recentre } from '../game/recentre.js';
 import { game, setMode } from '../game/state.js';
@@ -34,6 +36,7 @@ export class WristSystem extends createSystem({}) {
   private leave!: PokeButton;
   private centre!: PokeButton;
   private sound!: PokeButton;
+  private music!: PokeButton;
   private poseFor = 0;
   private lostFor = 0;
   private scale = 0;
@@ -45,8 +48,9 @@ export class WristSystem extends createSystem({}) {
     this.root.add(glass(W, H, 0.012));
     this.root.add(frame(W, H, 0.003, NEON.violet, 0.012));
 
-    const bw = (W - 0.03) / 3 - 0.004;
-    const bh = H - 0.022;
+    // Two by two: what you do up top, what you hear below.
+    const bw = (W - 0.03) / 2;
+    const bh = (H - 0.03) / 2;
     this.leave = addButton(
       new PokeButton({
         id: 'leave',
@@ -86,11 +90,32 @@ export class WristSystem extends createSystem({}) {
         },
       }),
     );
-    const step = bw + 0.008;
-    this.leave.root.position.set(-step, 0, 0.003);
-    this.centre.root.position.set(0, 0, 0.003);
-    this.sound.root.position.set(step, 0, 0.003);
-    this.root.add(this.leave.root, this.centre.root, this.sound.root);
+    this.music = addButton(
+      new PokeButton({
+        id: 'music',
+        width: bw,
+        height: bh,
+        label: isMusicMuted() ? 'MUSIC OFF' : 'MUSIC ON',
+        sub: 'POKE TO SWITCH',
+        accent: NEON.magenta,
+        hands: ['right'],
+        onPress: () => {
+          setMusicMuted(!isMusicMuted());
+          this.music.setText(isMusicMuted() ? 'MUSIC OFF' : 'MUSIC ON', 'POKE TO SWITCH');
+        },
+      }),
+    );
+    const dx = bw / 2 + 0.005;
+    const dy = bh / 2 + 0.005;
+    this.leave.root.position.set(-dx, dy, 0.003);
+    this.centre.root.position.set(dx, dy, 0.003);
+    this.sound.root.position.set(-dx, -dy, 0.003);
+    this.music.root.position.set(dx, -dy, 0.003);
+    this.root.add(this.leave.root, this.centre.root, this.sound.root, this.music.root);
+    // It's always the nearest panel to you (it's on your hand), so it draws
+    // after every other panel's layers: its glass has to cover the console's
+    // text when you hold it up in front of the console, not the reverse.
+    this.root.traverse((o) => (o.renderOrder += 20));
     this.root.visible = false;
     this.scene.add(this.root);
   }
@@ -128,7 +153,7 @@ export class WristSystem extends createSystem({}) {
     this.scale = Math.min(1, Math.max(0, this.scale + (game.wristOpen ? delta : -delta) / 0.15));
     this.root.visible = this.scale > 0;
     if (!this.root.visible) {
-      this.leave.active = this.centre.active = this.sound.active = false;
+      this.leave.active = this.centre.active = this.sound.active = this.music.active = false;
       return;
     }
     this.root.scale.setScalar(Math.max(0.001, this.scale));
@@ -141,6 +166,6 @@ export class WristSystem extends createSystem({}) {
 
     // Nothing to leave from the console itself.
     this.leave.setLocked(game.mode === 'home');
-    this.leave.active = this.centre.active = this.sound.active = game.wristOpen && this.scale >= 1;
+    this.leave.active = this.centre.active = this.sound.active = this.music.active = game.wristOpen && this.scale >= 1;
   }
 }

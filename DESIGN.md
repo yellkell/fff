@@ -85,10 +85,11 @@ joints directly.
   shape is there from day one. Each card becomes a station in THE
   CONSTELLATION (§6): TITANS → the BOSS GATE, 1V1 → the DUEL RING.
 - **THE WRIST PANEL.** Left palm up, looked at, held for 0.2 s: it opens
-  10 cm above your palm, poked with your right hand. **LEAVE** (back to
-  the console) and **RECENTRE** (turn and slide the world so the pad is
-  under you, facing where you look). Forfeit and mute join it when there
-  is a fight and a sound to have.
+  above your palm, poked with your right hand. Two by two: **LEAVE** (back
+  to the console; in a fight, a forfeit) and **RECENTRE** (turn and slide
+  the world so the pad is under you, facing where you look), then
+  **SOUND** and **MUSIC**. It draws over every other panel: it's always
+  the nearest.
 - **Later:** results after every fight (REMATCH · NEXT TITAN · HOME), a
   first-run hands check, settings.
 
@@ -115,7 +116,16 @@ two neon ones (a plucked synth note and an electric zap): no files.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it
   audible, unclipped and short.
-- **Not yet:** music.
+- **Music** (`src/audio/music.ts`, cued by `MusicSystem`): *Overtime* at
+  the console; FF2's *Aim* in practice; one of FF2's six battle tracks
+  per titan fight, never the same twice running; FF2's victory sting as a
+  titan falls to you, ringing on over the results for up to 6.5 s before
+  the console's track fades back (a lost fight goes quiet instead). As in
+  FF2, music plays through WebAudio, never an `<audio>` element (a Meta
+  Browser media-session crash). Tracks decode at 24 kHz and only the one
+  playing is kept (full-rate PCM can run a Quest tab out of memory), and
+  each is **loudness-matched** as it decodes, so a hot master and a quiet
+  one sit at the same level. **MUSIC** on the wrist panel mutes it.
 
 ---
 

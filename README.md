@@ -73,8 +73,14 @@ rebuilt for the headsets that ship without controllers. **Read
   that tick and click, and a titan you can *hear* coming, its windup
   whining from the fist that's about to swing, the beam charging from its
   eye, a heartbeat when you're nearly done. Positioned sounds come from
-  where they happen, in 3D round your head. **SOUND** on the wrist panel
-  turns it off and on. Hear them all on the **sound board**, `sounds.html`.
+  where they happen, in 3D round your head. Hear them all on the **sound
+  board**, `sounds.html`.
+- **Music** (`src/audio/music.ts`): *Overtime* at the console, and FIRE
+  FIGHT 2's score for the rest (*Aim* in practice, a battle track in each
+  titan fight, the victory sting when one falls to you). Every track is
+  loudness-matched as it loads, so none jumps out over the fight.
+- The wrist panel is now two by two: **LEAVE** and **RECENTRE**, then
+  **SOUND** and **MUSIC**, each on and off, remembered.
 
 Next up: tune RUSTHOOK on a headset, then the other four titans.
 

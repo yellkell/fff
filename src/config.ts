@@ -192,10 +192,10 @@ export const WRIST = {
   /** Hold the pose this long to open it; lose it this long to close it. */
   openHold: 0.2,
   closeHold: 0.3,
-  /** Where it floats: this far above the palm. */
-  lift: 0.1,
-  width: 0.28,
-  height: 0.085,
+  /** Where it floats: this far above the palm (to its centre). */
+  lift: 0.13,
+  width: 0.21,
+  height: 0.15,
 };
 
 /* ── titans ────────────────────────────────────────────────────────────── */

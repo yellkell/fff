@@ -7,10 +7,12 @@
 import { createSystem, launchXR, SessionMode, World } from '@iwsdk/core';
 import { AmbientLight } from 'three';
 import { buildPlatform } from './arena/platform.js';
+import { musicState } from './audio/music.js';
 import { audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
 import { fx, Sparks } from './fx/neon.js';
 import { game } from './game/state.js';
 import { AudioSystem } from './systems/AudioSystem.js';
+import { MusicSystem } from './systems/MusicSystem.js';
 import { BoundarySystem } from './systems/BoundarySystem.js';
 import { ConsoleSystem } from './systems/ConsoleSystem.js';
 import { ballPoses, ballStates, FireballSystem, releaseInfo } from './systems/FireballSystem.js';
@@ -62,7 +64,8 @@ World.create(container, {
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
     .registerSystem(FxSystem)
-    .registerSystem(AudioSystem);
+    .registerSystem(AudioSystem)
+    .registerSystem(MusicSystem);
 
   // The headless probes' window into the game (tools/*-check.mjs).
   (window as unknown as { __flux: unknown }).__flux = {
@@ -77,6 +80,7 @@ World.create(container, {
     titan: () => ({ ...titanStats, playerHp: game.playerHp, result: game.result }),
     titanDebug,
     sound: () => ({ state: audioState(), muted: isMuted(), gain: masterGain(), log: { ...sfxLog } }),
+    music: musicState,
     wristOpen: () => game.wristOpen,
     buttons: () =>
       Object.fromEntries(buttons.map((b) => [b.id, { ...buttonPose(b), active: b.active, locked: b.locked, presses: b.presses, refusals: b.refusals }])),
