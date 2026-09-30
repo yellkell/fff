@@ -48,6 +48,30 @@ export const PLATFORM_VERTICES: ReadonlyArray<readonly [number, number]> = [
   [-PLATFORM.halfWidth, -PLATFORM.frontChamfer], // left-front chamfer
 ];
 
+/**
+ * How the platform outline is drawn (arena/platform.ts). WebGL lines are
+ * one pixel wide whatever you ask for, which is a hairline in a headset, so
+ * the rim is real geometry with width. Insets are measured in from the
+ * outline; the glow fades out over `glowWidth` on each side of it.
+ */
+export const PLATFORM_RIM = {
+  /** The bright tube itself, straddling the outline. */
+  coreWidth: 0.035,
+  /** The soft halo on each side of the tube. */
+  glowWidth: 0.13,
+  glowPeak: 0.55,
+  /** A low lit curb standing on the outline, so the edge still reads when
+   *  you look across the floor at a shallow angle. */
+  lipHeight: 0.06,
+  /** The second, magenta stripe just inside the rim. */
+  innerInset: 0.07,
+  innerWidth: 0.016,
+  /** The front tick: a bar across the front edge, just inside it. */
+  tickHalf: 0.14,
+  tickWidth: 0.035,
+  tickInset: 0.12,
+};
+
 /** The rim walls: they wake as your head nears an edge. */
 export const BOUNDARY = {
   wallHeight: 2.2,

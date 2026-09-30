@@ -9,7 +9,7 @@ rebuilt for the headsets that ship without controllers. **Read
 
 - **Passthrough, hands required.** The session is `immersive-ar` with hand
   tracking *required*. There are no controllers in this game.
-- **The platform, a tenth cut off the back.** A neon outline on your real
+- **The platform, a tenth cut off the back.** A thick neon rim on your real
   floor: FF2's 1.72 m octagon, 1.35 m deep instead of 1.5 (the back edge
   comes in from +0.75 to +0.60; the front and your standing spot don't
   move). Rim walls glow awake as your head nears an edge.
