@@ -191,6 +191,8 @@ laid out on your floor.
 
 ## 8 · Build order
 
+Steps 1 and 2 are done (see the README).
+
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for
    dev.

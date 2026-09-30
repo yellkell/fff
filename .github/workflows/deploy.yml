@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+# Whatever this workflow uploads from main becomes the live site
+# (https://yellkell.github.io/fff/). Open it in the Quest browser.
+# ONE-TIME SETUP, if the first deploy fails at "configure": Settings → Pages
+# → Build and deployment → Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Pages serves this project from /fff/, not a domain root: a
+      # root-absolute asset path 404s there while working in local dev.
+      - name: Guard against root-absolute asset paths
+        run: |
+          if grep -rEn '(src|href)="/[^/]' dist --include='*.html'; then
+            echo "::error::Root-absolute asset paths found — these 404 under the /fff/ subpath. Make them relative."
+            exit 1
+          fi
+      - id: configure
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
