@@ -141,3 +141,59 @@ export const TARGETS = {
   maxY: 2.0,
   respawn: 0.8,
 };
+
+/* ── menus ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Menus are poked with a fingertip (DESIGN §2): no rays, so every button is
+ * within arm's reach. A button fires when a fingertip that came at it from
+ * the front pushes `pressDepth` past its face, and can't fire again until
+ * that finger pulls back out past `rearmDepth`. The face sinks up to
+ * `travel` under the finger: the press you see stands in for the haptics
+ * a bare hand doesn't have.
+ */
+export const MENU = {
+  /** A fingertip this close in front of a face starts lighting it. */
+  hoverDepth: 0.06,
+  pressDepth: 0.012,
+  rearmDepth: 0.008,
+  travel: 0.02,
+  /** How far outside a button's edge a fingertip still counts as on it. */
+  edgeSlack: 0.008,
+  /** No two presses closer than this, anywhere: one poke, one action. */
+  cooldown: 0.3,
+  /** Smoked glass behind every panel, so neon reads over a bright room. */
+  glassColor: 0x07060d,
+  glassOpacity: 0.72,
+};
+
+/** THE CONSOLE: the home menu, standing on the front of your pad. */
+export const CONSOLE = {
+  /** In front of your standing spot, inside the front tick. */
+  distance: 0.42,
+  /** Below your eyes, clamped so it works for anyone, sitting or standing. */
+  belowEyes: 0.42,
+  minY: 0.8,
+  maxY: 1.45,
+  width: 0.54,
+  height: 0.33,
+  /** Rising out of the floor / sinking back into it. */
+  riseTime: 0.5,
+};
+
+/** THE WRIST PANEL: turn your left palm up and look at it. */
+export const WRIST = {
+  /** Palm-normal · world-up to open, and the looser value it must stay over. */
+  openUp: 0.65,
+  stayUp: 0.35,
+  /** Angle (degrees) between your gaze and your palm to open / to stay open. */
+  openGaze: 25,
+  stayGaze: 40,
+  /** Hold the pose this long to open it; lose it this long to close it. */
+  openHold: 0.2,
+  closeHold: 0.3,
+  /** Where it floats: this far above the palm. */
+  lift: 0.1,
+  width: 0.2,
+  height: 0.085,
+};

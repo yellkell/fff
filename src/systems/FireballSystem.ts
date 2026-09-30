@@ -20,6 +20,7 @@ import { createSystem } from '@iwsdk/core';
 import { Group, Vector3 } from 'three';
 import { FIREBALL, NEON } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
+import { game, handsOnMenu } from '../game/state.js';
 import { hands, SIDES, type Side } from '../input/hands.js';
 import { hitTarget, targets } from './TargetSystem.js';
 
@@ -122,6 +123,17 @@ export class FireballSystem extends createSystem({}) {
   update(delta: number): void {
     const now = performance.now() / 1000;
     this.camera.getWorldPosition(_head);
+    // At the console there's nothing to fight: the balls wait, unlit, out of sight.
+    if (game.mode === 'home') {
+      for (const b of this.balls) {
+        b.state = State.Hover;
+        b.samples.length = 0;
+        b.pos.copy(hands[b.side].palm);
+        b.group.visible = false;
+      }
+      return;
+    }
+    const menu = handsOnMenu();
     for (const b of this.balls) {
       const h = hands[b.side];
       if (h.fresh) {
@@ -130,12 +142,15 @@ export class FireballSystem extends createSystem({}) {
       }
       b.recallLock = Math.max(0, b.recallLock - delta);
       const shape = h.shape;
+      // While your hands are on a menu, a hand shape does nothing to a ball.
+      const justClosed = !menu && shape.justClosed;
+      const justOpened = !menu && shape.justOpened;
 
       switch (b.state) {
         case State.Hover: {
           this.hoverTarget(b, _v);
           b.pos.lerp(_v, Math.min(1, delta * FIREBALL.hoverLerp));
-          if (shape.justClosed && b.pos.distanceTo(h.palm) <= FIREBALL.nearHandRadius) {
+          if (justClosed && b.pos.distanceTo(h.palm) <= FIREBALL.nearHandRadius) {
             b.state = State.Orbit;
             b.spin = 0;
             fx.sparks?.burst(b.pos, 18, this.color(b), 1.2);
@@ -143,7 +158,7 @@ export class FireballSystem extends createSystem({}) {
           break;
         }
         case State.Orbit: {
-          if (shape.justOpened || !shape.tracked) {
+          if (justOpened || !shape.tracked) {
             releaseVelocity(b.samples, now, _v);
             if (shape.tracked && _v.length() >= FIREBALL.minPunchSpeed) this.throwBall(b, _v);
             else b.state = State.Hover;
@@ -166,7 +181,7 @@ export class FireballSystem extends createSystem({}) {
             fx.sparks?.burst(b.pos, 20, this.color(b), 1);
             b.state = State.Hover;
             b.pos.copy(h.palm);
-          } else if (shape.justClosed && b.recallLock <= 0) {
+          } else if (justClosed && b.recallLock <= 0) {
             b.state = State.Returning;
           }
           break;
@@ -190,7 +205,10 @@ export class FireballSystem extends createSystem({}) {
       // Draw. The ball only shows while its hand is tracked, or while it's
       // away from the hand (in flight, or coming home).
       const away = b.state === State.Flying || b.state === State.Returning;
-      b.group.visible = away || shape.tracked;
+      // An idle ball over a palm that's holding up the wrist panel would sit
+      // right behind the panel: it steps out of the way.
+      const underPanel = game.wristOpen && b.side === 'left' && b.state === State.Hover;
+      b.group.visible = (away || shape.tracked) && !underPanel;
       b.group.position.copy(b.pos);
       const lit = b.state !== State.Hover;
       b.group.scale.setScalar(lit ? 1 : 0.55);

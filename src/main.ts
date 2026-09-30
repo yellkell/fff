@@ -8,11 +8,16 @@ import { createSystem, launchXR, SessionMode, World } from '@iwsdk/core';
 import { AmbientLight } from 'three';
 import { buildPlatform } from './arena/platform.js';
 import { fx, Sparks } from './fx/neon.js';
+import { game } from './game/state.js';
 import { BoundarySystem } from './systems/BoundarySystem.js';
+import { ConsoleSystem } from './systems/ConsoleSystem.js';
 import { ballStates, FireballSystem } from './systems/FireballSystem.js';
 import { hands } from './input/hands.js';
 import { HandSystem } from './systems/HandSystem.js';
+import { PokeSystem } from './systems/PokeSystem.js';
 import { TargetSystem } from './systems/TargetSystem.js';
+import { WristSystem } from './systems/WristSystem.js';
+import { buttonPose, buttons } from './ui/poke.js';
 
 const container = document.getElementById('scene-container') as HTMLDivElement;
 const enter = document.getElementById('enter') as HTMLButtonElement;
@@ -42,9 +47,13 @@ World.create(container, {
   world.scene.add(buildPlatform());
   fx.sparks = new Sparks(world.scene);
 
-  // Order: hands first (everything reads them), then what plays on them.
+  // Order: hands first (everything reads them); then the menus place their
+  // panels and the poke system presses them; then what plays on the hands.
   world
     .registerSystem(HandSystem)
+    .registerSystem(ConsoleSystem)
+    .registerSystem(WristSystem)
+    .registerSystem(PokeSystem)
     .registerSystem(TargetSystem)
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
@@ -53,10 +62,19 @@ World.create(container, {
   // The headless probes' window into the game (tools/*-check.mjs).
   (window as unknown as { __flux: unknown }).__flux = {
     hands: () => ({
-      left: { tracked: hands.left.shape.tracked, closed: hands.left.shape.closed, fresh: hands.left.fresh, curl: hands.left.shape.last?.curl, pinch: hands.left.shape.last?.pinch, palm: hands.left.palm.toArray() },
-      right: { tracked: hands.right.shape.tracked, closed: hands.right.shape.closed, fresh: hands.right.fresh, curl: hands.right.shape.last?.curl, pinch: hands.right.shape.last?.pinch, palm: hands.right.palm.toArray() },
+      left: { tracked: hands.left.shape.tracked, closed: hands.left.shape.closed, fresh: hands.left.fresh, curl: hands.left.shape.last?.curl, pinch: hands.left.shape.last?.pinch, palm: hands.left.palm.toArray(), palmNormal: hands.left.palmNormal.toArray(), indexTip: hands.left.indexTip.toArray() },
+      right: { tracked: hands.right.shape.tracked, closed: hands.right.shape.closed, fresh: hands.right.fresh, curl: hands.right.shape.last?.curl, pinch: hands.right.shape.last?.pinch, palm: hands.right.palm.toArray(), palmNormal: hands.right.palmNormal.toArray(), indexTip: hands.right.indexTip.toArray() },
     }),
     balls: ballStates,
+    mode: () => game.mode,
+    wristOpen: () => game.wristOpen,
+    buttons: () =>
+      Object.fromEntries(buttons.map((b) => [b.id, { ...buttonPose(b), active: b.active, locked: b.locked, presses: b.presses, refusals: b.refusals }])),
+    head: () => {
+      const p = world.camera.getWorldPosition(world.camera.position.clone());
+      const d = world.camera.getWorldDirection(world.camera.position.clone());
+      return { pos: p.toArray(), dir: d.toArray() };
+    },
   };
 
   const ar = (await navigator.xr?.isSessionSupported(SessionMode.ImmersiveAR).catch(() => false)) === true;
