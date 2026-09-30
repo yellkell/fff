@@ -194,7 +194,7 @@ export const WRIST = {
   closeHold: 0.3,
   /** Where it floats: this far above the palm. */
   lift: 0.1,
-  width: 0.2,
+  width: 0.28,
   height: 0.085,
 };
 

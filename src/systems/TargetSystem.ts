@@ -8,6 +8,7 @@
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, Vector3 } from 'three';
 import { NEON, TARGETS } from '../config.js';
+import { sfx } from '../audio/sfx.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { addHittable } from '../game/hittables.js';
 import { game } from '../game/state.js';
@@ -31,6 +32,7 @@ export function hitTarget(t: Target): void {
   t.group.visible = false;
   t.respawnIn = TARGETS.respawn;
   fx.sparks?.burst(t.pos, 70, NEON.lime, 2.4);
+  sfx('targetPop', t.pos);
 }
 
 export class TargetSystem extends createSystem({}) {

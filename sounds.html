@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flux Sound Board</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #07060d;
+        color: #e9ecff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 20px 16px 40px;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.6rem;
+        letter-spacing: 0.06em;
+        text-shadow: 0 0 12px #19f0ff;
+      }
+      p {
+        margin: 0 0 18px;
+        opacity: 0.75;
+      }
+      h2 {
+        margin: 22px 0 10px;
+        font-size: 0.8rem;
+        letter-spacing: 0.16em;
+        opacity: 0.7;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      button {
+        font: inherit;
+        text-align: left;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 2px solid #19f0ff;
+        background: rgba(25, 240, 255, 0.06);
+        color: #fff;
+        cursor: pointer;
+      }
+      button b {
+        display: block;
+        letter-spacing: 0.06em;
+      }
+      button span {
+        display: block;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        margin-top: 2px;
+      }
+      button:active {
+        background: rgba(25, 240, 255, 0.25);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>FLUX SOUND BOARD</h1>
+      <p>Every sound in the game, synthesised live. Tap to hear it. (In the headset they come from where they happen.)</p>
+      <div id="board"></div>
+    </main>
+    <script type="module" src="/src/audio/board.ts"></script>
+  </body>
+</html>

@@ -12,7 +12,8 @@
     "check:hands": "node --experimental-strip-types --no-warnings tools/hand-check.mjs",
     "check:smoke": "node tools/smoke-check.mjs",
     "check:titans": "node tools/titan-check.mjs",
-    "check:strike": "node --experimental-strip-types --no-warnings tools/strike-check.mjs"
+    "check:strike": "node --experimental-strip-types --no-warnings tools/strike-check.mjs",
+    "check:sounds": "node tools/sound-check.mjs"
   },
   "dependencies": {
     "@iwsdk/core": "0.4.2",

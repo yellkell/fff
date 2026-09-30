@@ -9,6 +9,7 @@
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import { BOUNDARY, NEON, PLATFORM_VERTICES } from '../config.js';
+import { sfx } from '../audio/sfx.js';
 import { game } from '../game/state.js';
 
 const _head = new Vector3();
@@ -25,6 +26,7 @@ interface Wall {
 
 export class BoundarySystem extends createSystem({}) {
   private walls: Wall[] = [];
+  private buzz = 0;
 
   init(): void {
     const n = PLATFORM_VERTICES.length;
@@ -52,7 +54,7 @@ export class BoundarySystem extends createSystem({}) {
     }
   }
 
-  update(): void {
+  update(delta: number): void {
     this.camera.getWorldPosition(_head);
     let outside = false;
     for (const w of this.walls) {
@@ -67,5 +69,11 @@ export class BoundarySystem extends createSystem({}) {
     // The pad is convex: past any one edge is off it. (A titan fight drains
     // you for it: TitanSystem.)
     game.headOutside = outside;
+    // Off the pad: a low buzz in your ears, every so often, until you're back.
+    this.buzz = Math.max(0, this.buzz - delta);
+    if (outside && this.buzz <= 0) {
+      sfx('boundary');
+      this.buzz = 0.45;
+    }
   }
 }

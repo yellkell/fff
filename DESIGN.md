@@ -92,6 +92,31 @@ joints directly.
 - **Later:** results after every fight (REMATCH · NEXT TITAN · HOME), a
   first-run hands check, settings.
 
+### 2.2 Sound
+
+Built (`src/audio/sfx.ts`). Every sound is synthesised live with WebAudio,
+from FF2's building blocks (tone, noise, clank, swell, growl, servo) plus
+two neon ones (a plucked synth note and an electric zap): no files.
+
+- **Sound stands in for haptics.** Every press, catch, block and hit has
+  one, next to its light.
+- **Sound comes from where it happens.** Positioned sounds go through an
+  HRTF panner, with the listener on your head. The titan's windup whines
+  from the fist that's about to swing, so you hear which side before you
+  see it, and the beam charges from its eye. Your own hits play in your
+  ears.
+- **Tells are loud.** The windup and the beam charge rise across their
+  whole windup, so the strike lands at the top of the sound; the beam's
+  lock is a sharp double blip: *move now*.
+- **Hums** for the continuous things: each ball hums at its hand (higher
+  as it flies), and the titan's engine idles in its chest and revs as it
+  lunges.
+- **SOUND** on the wrist panel mutes it all; the choice is remembered.
+- **The sound board** (`sounds.html`, in the Pages build) plays every
+  sound on a tap; `check:sounds` renders each offline and holds it
+  audible, unclipped and short.
+- **Not yet:** music.
+
 ---
 
 ## 3 · Bosses — the main mode

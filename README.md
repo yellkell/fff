@@ -68,6 +68,14 @@ rebuilt for the headsets that ship without controllers. **Read
   - when it falls (or you do) it un-prints, and the console comes back up
     on its **results** face: REMATCH, NEXT TITAN (locked), HOME.
 
+- **Sound** (`src/audio/sfx.ts`, DESIGN §2.2). Every sound synthesised
+  live, no files: fireballs that hum in your hands and whoomp away, menus
+  that tick and click, and a titan you can *hear* coming, its windup
+  whining from the fist that's about to swing, the beam charging from its
+  eye, a heartbeat when you're nearly done. Positioned sounds come from
+  where they happen, in 3D round your head. **SOUND** on the wrist panel
+  turns it off and on. Hear them all on the **sound board**, `sounds.html`.
+
 Next up: tune RUSTHOOK on a headset, then the other four titans.
 
 ## Run it
@@ -94,6 +102,8 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # with the emulator's hands
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
+npm run check:sounds # needs `npm run dev`: every sound renders, audible and
+                     # unclipped (-- --reel out.wav for all of them as one file)
 ```
 
 CI runs all of it on every push and PR (`.github/workflows/checks.yml`).

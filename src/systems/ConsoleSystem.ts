@@ -17,6 +17,7 @@
 
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
+import { sfx } from '../audio/sfx.js';
 import { CONSOLE, NEON } from '../config.js';
 import { type FightResult, game, setMode } from '../game/state.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
@@ -42,6 +43,7 @@ export class ConsoleSystem extends createSystem({}) {
   private rise = 0;
   private targetY = 1.1;
   private placedFor = -1;
+  private wasUp: boolean | null = null;
 
   init(): void {
     const W = CONSOLE.width;
@@ -125,6 +127,10 @@ export class ConsoleSystem extends createSystem({}) {
 
   update(delta: number): void {
     const up = game.mode === 'home';
+    if (up !== this.wasUp) {
+      this.wasUp = up;
+      sfx(up ? 'consoleRise' : 'consoleSink', _head.set(0, this.targetY, -CONSOLE.distance));
+    }
     // Place it from your head as it starts to rise, and again on a recentre.
     if (up && (this.rise === 0 || this.placedFor !== game.recentred)) this.place();
     this.rise = Math.min(1, Math.max(0, this.rise + (up ? delta : -delta) / CONSOLE.riseTime));

@@ -11,7 +11,9 @@
  * misses one that steps aside after the windup, and bounces off an open
  * palm; the eye beam lands; a thrown ball hits it; and felling it brings
  * the console back on its results face. Last, from off-centre, RECENTRE
- * puts the pad back under you. No page errors throughout.
+ * puts the pad back under you. Throughout, the sound: it starts with the
+ * Enter press, every moment above fires its sound, and SOUND on the wrist
+ * panel mutes it and brings it back. No page errors throughout.
  * (The fist path is proven joint by joint in check:hands; the emulator's
  * hands only know open and pinch.)
  *
@@ -180,6 +182,11 @@ if (offered) {
 
   // ── THE CONSOLE ──
   await settle(600); // let it finish rising
+  const SND = () => page.evaluate(() => window.__flux.sound());
+  // Make sure a remembered SOUND OFF from an earlier run doesn't carry in.
+  await page.evaluate(() => localStorage.removeItem('flux-sound'));
+  const snd0 = await SND();
+  check('sound starts with the Enter press', snd0.state === 'running', snd0.state);
   let s = await S();
   check('you arrive at the console', s.mode === 'home' && s.buttons.practice?.active, s.mode);
   check('no balls at the console', (await page.evaluate(() => window.__flux.balls())).length === 2);
@@ -227,6 +234,13 @@ if (offered) {
   await pinch(0);
   await settle();
 
+  {
+    const log = (await SND()).log;
+    const need = ['consoleRise', 'consoleSink', 'uiClick', 'uiDenied', 'ignite', 'drop', 'throw', 'recall', 'catch'];
+    const missing = need.filter((n) => !log[n]);
+    check('the menus and the fireball loop all make their sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : need.join(' · '));
+  }
+
   // ── THE WRIST PANEL ──
   await palmUp();
   s = await S();
@@ -237,6 +251,16 @@ if (offered) {
   check('a hand shape does nothing while it is open', (await R()).ball === 'hover');
   await pinch(0);
   await settle(200);
+  await poke('sound');
+  await settle(300);
+  let snd = await SND();
+  check('SOUND on the wrist panel switches it off', snd.muted && snd.gain < 0.01, `gain ${snd.gain.toFixed(3)}`);
+  await settle(350);
+  await poke('sound');
+  await settle(300);
+  snd = await SND();
+  check('and back on', !snd.muted && snd.gain > 0.5, `gain ${snd.gain.toFixed(3)}`);
+  await settle(350);
   await poke('leave');
   s = await S();
   check('LEAVE goes back to the console', s.mode === 'home' && s.buttons.leave.presses === 1, s.mode);
@@ -305,15 +329,24 @@ if (offered) {
   t = await until((x) => x.act === null && x.hitsTaken > 1, 10000);
   check('the eye beam lands on a head that stays put', t.hitsTaken === 2, `hits taken ${t.hitsTaken}`);
 
-  // Your turn: light the right ball and punch it at the titan's core.
-  await place('hand-right', AIM);
-  await settle(400);
-  await pinch(1);
-  await settle(300);
-  await swing(true, AIM);
-  t = await until((x) => x.hitsLanded + x.armourHits > 0, 3000);
-  check('a thrown ball hits the titan', t.hitsLanded + t.armourHits > 0, `${t.hitsLanded} on a weak point, ${t.armourHits} on armour, its health ${t.hp.toFixed(2)}; release ${JSON.stringify(await page.evaluate(() => window.__flux.releaseInfo()))}`);
-  check('the weak points take it', t.hitsLanded > 0 && t.hp < 1);
+  // Your turn: light the right ball and punch it at the titan's core, a
+  // ball or three till one finds a weak point (a hand-thrown ball can clip
+  // the armour, fairly).
+  let first = null;
+  for (let i = 0; i < 3; i++) {
+    await place('hand-right', AIM);
+    await settle(i === 0 ? 400 : 900);
+    await pinch(1);
+    await settle(300);
+    await swing(true, AIM);
+    t = await until((x) => x.hitsLanded + x.armourHits > (first ? first.hitsLanded + first.armourHits : 0), 3000);
+    if (!first) {
+      first = t;
+      check('a thrown ball hits the titan', t.hitsLanded + t.armourHits > 0, `${t.hitsLanded} on a weak point, ${t.armourHits} on armour, its health ${t.hp.toFixed(2)}; release ${JSON.stringify(await page.evaluate(() => window.__flux.releaseInfo()))}`);
+    }
+    if (t.hitsLanded > 0) break;
+  }
+  check('the weak points take it', t.hitsLanded > 0 && t.hp < 1, `${t.hitsLanded} on a weak point, ${t.armourHits} on armour`);
 
   // Fell it: one hit from done, then a ball or three till one lands.
   await debug({ setHp: 0.01 });
@@ -339,6 +372,12 @@ if (offered) {
   await poke('home');
   s = await S();
   check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);
+  {
+    const log = (await SND()).log;
+    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'weakHit', 'titanFall', 'win'];
+    const missing = need.filter((n) => !log[n]);
+    check('the fight makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : `${need.length} sounds`);
+  }
   await debug({ hold: false });
 
   // RECENTRE last: it moves the world, and every poke above assumes it hasn't.
