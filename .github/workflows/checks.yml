@@ -1,7 +1,8 @@
 name: Checks
 
-# Typecheck, build, the hand-shape reader's laws, and the headless smoke
-# (the emulator's hands playing the whole fireball loop).
+# Typecheck, build, the hand-shape reader's laws, the headless smoke (the
+# emulator's hands poking the menus and playing the fireball loop), and the
+# neon titans.
 
 on:
   push:
@@ -35,5 +36,7 @@ jobs:
           done
           cat vite.log
           exit 1
-      - name: Smoke — boot, enter, and play the fireball loop with emulated hands
+      - name: Smoke — boot, enter, poke the menus and play the fireball loop with emulated hands
         run: npm run check:smoke
+      - name: Titans — every rig builds in neon, fits the room, stays in budget
+        run: npm run check:titans

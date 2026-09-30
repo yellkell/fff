@@ -197,3 +197,34 @@ export const WRIST = {
   width: 0.2,
   height: 0.085,
 };
+
+/* ── titans ────────────────────────────────────────────────────────────── */
+
+/** Standing a titan in a room (DESIGN §3.3): in front of you, and scaled so
+ *  its head clears an ordinary ceiling. It leans and lunges; it doesn't tower. */
+export const STAGE = {
+  distance: 2.2,
+  maxHeight: 2.3,
+};
+
+/**
+ * The neon finish (titans/neon.ts). Sizes are in STAGED metres, what you
+ * see in the room, whatever the titan's own scale.
+ */
+export const TITAN_NEON = {
+  /** The lit edge tube's radius, and its soft halo's. */
+  edgeRadius: 0.0045,
+  haloRadius: 0.014,
+  haloOpacity: 0.22,
+  /** How much white is mixed into the tube so it reads as the light source. */
+  edgeWhite: 0.3,
+  /** Faces meeting sharper than this get a lit edge (degrees). */
+  creaseAngle: 30,
+  /** Parts smaller than this get no edges (rivets, bolts, chain links):
+   *  on a titan across the room they'd only be fizz. */
+  minPart: 0.045,
+  /** The dark glass body: the line colour at this brightness, this opaque.
+   *  Near-opaque, so a titan blocks the room behind it like a solid thing. */
+  bodyTint: 0.03,
+  bodyOpacity: 0.9,
+};

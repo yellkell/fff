@@ -9,5 +9,10 @@ export default defineConfig({
   base: './',
   plugins: [iwsdkDev({ emulator: { device: 'metaQuest3' } })],
   server: { host: true, port: 5173 },
-  build: { target: 'esnext' },
+  build: {
+    target: 'esnext',
+    // The titan viewer ships too, so the neon titans can be looked at on
+    // any screen (the Pages site's /titans.html).
+    rollupOptions: { input: { main: 'index.html', titans: 'titans.html' } },
+  },
 });
