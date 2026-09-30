@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flux Titans</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #07060d;
+        color: #e9ecff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 16px;
+        align-items: center;
+      }
+      #bar button {
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 2px solid #19f0ff;
+        background: rgba(7, 6, 13, 0.7);
+        color: #fff;
+        cursor: pointer;
+      }
+      #bar button[aria-pressed='true'] {
+        background: #19f0ff;
+        color: #07060d;
+      }
+      #info {
+        position: fixed;
+        left: 16px;
+        bottom: 12px;
+        font-size: 13px;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar"></div>
+    <div id="info"></div>
+    <script type="module" src="/src/titans/preview.ts"></script>
+  </body>
+</html>

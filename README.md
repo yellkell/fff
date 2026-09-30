@@ -41,7 +41,17 @@ rebuilt for the headsets that ship without controllers. **Read
 - **Practice targets.** Neon rings in front of you that burst when a ball
   goes through them.
 
-Next up: the first titan, whose blows come from its own fist (DESIGN §3).
+- **The five titans, in neon** (`src/titans/`). FF2's rigs, part for part
+  (so its gestures and weak points port without renumbering), refinished
+  for a real room: dark glass bodies that block the room like solid
+  things, every crease a lit edge tube with a soft halo, and the eye, core
+  and weak points left glowing in each titan's accent. Each stands 2.2 m
+  off your pad, scaled so its head clears a 2.3 m ceiling. See them all in
+  the **titan viewer**, `titans.html` (dev server or the Pages site), in a
+  dark room or a lit one.
+
+Next up: RUSTHOOK fights, with blows that come from its own fist
+(DESIGN §3).
 
 ## Run it
 
@@ -62,6 +72,8 @@ npm run check:hands  # the hand-shape reader's laws, joint by joint (plain Node)
 npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # and pokes its way through every menu and the whole
                      # fireball loop with the emulator's hands
+npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
+                     # the room and stays in the draw budget (-- --shots for pictures)
 ```
 
 CI runs all of it on every push and PR (`.github/workflows/checks.yml`).

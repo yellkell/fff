@@ -147,8 +147,36 @@ interface Strike {
 - Placement follows the guardian (`bounded-floor`). Later, scene mesh
   keeps the titan out of your sofa.
 - **Roster order:** RUSTHOOK, PISTONKAISER, VULTURE, JUGGERNAUT, GOLIATH,
-  re-skinned in neon. GOOPLIATH comes later: its raymarch cost grows with
+  re-skinned in neon (§3.4). GOOPLIATH comes later: its raymarch cost grows with
   reach, and its reach is exactly what we'd be raising.
+
+### 3.4 The neon titans
+
+Done (`src/titans/`). The rigs are FF2's `bosses.ts` geometry verbatim;
+only the finish changed (`titans/neon.ts`, replacing FF2's skins):
+
+- **Dark glass bodies.** Every plate is near-opaque, tinted a whisper of
+  the titan's line colour, so it blocks the room behind it and reads as
+  solid in a lit room as well as a dark one.
+- **Lit edges.** Every crease sharper than 30° is a 9 mm tube with a soft
+  additive halo, sized in *room* metres so all five match once staged.
+  Parts under 4.5 cm (rivets, bolts, chain links) get none: from across a
+  room they'd only fizz. Round parts get enough sides that only their rims
+  light.
+- **Two colours per titan.** A *line* colour for the machine and FF2's
+  *accent* for the eye, core, weak points and trims:
+  | Titan | Line | Accent |
+  | --- | --- | --- |
+  | RUSTHOOK | ember | cyan |
+  | PISTONKAISER | white-hot steel | amber |
+  | VULTURE | magenta | venom green |
+  | JUGGERNAUT | deep blue | violet |
+  | GOLIATH | cold white, gold trim | red |
+- **Budget.** 120–170 draw calls and 15–40 k edge triangles per titan,
+  platform included (`npm run check:titans` holds it under 400 calls).
+  Edges are merged per moving part, not per plate.
+- **Open:** VULTURE's wings rest spread, about 3 m across, until its
+  entrance folds them. Check that against a real room.
 
 ---
 
@@ -222,8 +250,8 @@ laid out on your floor.
 
 ## 8 · Build order
 
-Steps 1 and 2 are done, and so are the console and wrist panel (§2.1;
-see the README).
+Steps 1 and 2 are done, and so are the console and wrist panel (§2.1)
+and the titans' neon (§3.4; see the README).
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for
