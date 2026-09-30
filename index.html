@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Fire Fight Flux</title>
+    <meta name="theme-color" content="#07060d" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --cyan: #19f0ff;
+        --magenta: #ff2bd6;
+        --ink: #07060d;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--ink);
+        color: #e9ecff;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #scene-container {
+        position: fixed;
+        inset: 0;
+      }
+      #landing {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 16px;
+        text-align: center;
+        background:
+          radial-gradient(circle at 30% 30%, rgba(25, 240, 255, 0.16), transparent 28rem),
+          radial-gradient(circle at 70% 70%, rgba(255, 43, 214, 0.16), transparent 28rem),
+          var(--ink);
+      }
+      body.in-xr #landing {
+        display: none;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 9vw, 5rem);
+        letter-spacing: 0.06em;
+        font-weight: 900;
+        color: #fff;
+        text-shadow:
+          0 0 8px var(--cyan),
+          0 0 24px var(--cyan),
+          0 0 48px var(--magenta);
+      }
+      h1 span {
+        color: var(--magenta);
+        text-shadow:
+          0 0 8px var(--magenta),
+          0 0 28px var(--magenta);
+      }
+      #status {
+        margin: 0;
+        opacity: 0.8;
+      }
+      #enter {
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 16px 40px;
+        border-radius: 999px;
+        border: 2px solid var(--cyan);
+        background: transparent;
+        color: #fff;
+        box-shadow:
+          0 0 16px rgba(25, 240, 255, 0.6),
+          inset 0 0 16px rgba(25, 240, 255, 0.35);
+        cursor: pointer;
+      }
+      #enter:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene-container"></div>
+    <div id="landing">
+      <h1>FIRE FIGHT <span>FLUX</span></h1>
+      <p id="status">Loading…</p>
+      <button id="enter" type="button" disabled>Enter</button>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

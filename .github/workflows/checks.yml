@@ -1,0 +1,39 @@
+name: Checks
+
+# Typecheck, build, the hand-shape reader's laws, and the headless smoke
+# (the emulator's hands playing the whole fireball loop).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: The hand-shape reader
+        run: npm run check:hands
+      - run: npx playwright install --with-deps chromium
+      - name: Start the dev server
+        run: |
+          npx vite --port 5173 --strictPort > vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:5173/ && exit 0
+            sleep 1
+          done
+          cat vite.log
+          exit 1
+      - name: Smoke — boot, enter, and play the fireball loop with emulated hands
+        run: npm run check:smoke
