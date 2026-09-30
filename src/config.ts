@@ -228,3 +228,32 @@ export const TITAN_NEON = {
   bodyTint: 0.03,
   bodyOpacity: 0.9,
 };
+
+/** A titan fight (TitanSystem). Health is 0–1 on both sides. */
+export const FIGHT = {
+  /** The titan prints into your room from the floor up, and out again. */
+  riseTime: 2.4,
+  fallTime: 2.2,
+  /** Seconds between one strike's recovery and the next windup. */
+  gapMin: 0.8,
+  gapMax: 1.5,
+  /** The whole titan steps in behind a blow, this far at most (metres). */
+  lungeMax: 0.85,
+  /** The forearm telescopes this far at most (rig metres per unit scale). */
+  telescope: 0.5,
+  /** A blocked blow staggers the titan: no new windup for this long. */
+  stagger: 1.2,
+  /** Your head, as a sphere, for the judging. */
+  headRadius: 0.11,
+  /** An open palm facing the fist, this close to its path, blocks it. */
+  palmReach: 0.09,
+  palmFacing: 0.3,
+  /** The eye beam's radius. It locks this far through its windup. */
+  beamRadius: 0.035,
+  beamLock: 0.62,
+  /** Standing off the pad drains you, per second. */
+  outsideDrain: 0.12,
+  /** Idle life: a drift side to side, a breath. */
+  sway: 0.14,
+  bob: 0.025,
+};

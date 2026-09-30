@@ -50,8 +50,25 @@ rebuilt for the headsets that ship without controllers. **Read
   the **titan viewer**, `titans.html` (dev server or the Pages site), in a
   dark room or a lit one.
 
-Next up: RUSTHOOK fights, with blows that come from its own fist
-(DESIGN §3).
+- **RUSTHOOK fights** (`src/systems/TitanSystem.ts`, DESIGN §3.5). Poke
+  TITANS and it prints into your room from the floor up, 2.2 m off your
+  pad, and swings at *you*:
+  - five moves, each with a windup you learn to read: a **jab**, the crane
+    **hook**, an **overhand**, a level **sweep**, and an **eye beam** that
+    tracks you, locks, then fires;
+  - its arms really reach (`titans/ik.ts`): the elbow bends, the forearm
+    telescopes out on a lit piston, and the whole machine lunges in;
+  - every blow flies at where your head was when the windup ended:
+    **step off the line or duck**, or **block** with an open palm facing
+    it (or a ball orbiting your hand). A blocked blow staggers it;
+  - throw fireballs at its blinking **visor** and **chest core**; the rest
+    of it is armour and just sparks. Twelve hits fell it;
+  - you're hurt when a blow or the beam finds your head, or while you stand
+    off your pad, and your **platform rim bleeds red** as you go;
+  - when it falls (or you do) it un-prints, and the console comes back up
+    on its **results** face: REMATCH, NEXT TITAN (locked), HOME.
+
+Next up: tune RUSTHOOK on a headset, then the other four titans.
 
 ## Run it
 
@@ -69,9 +86,12 @@ switch the input mode to hands.
 ```bash
 npm run typecheck && npm run build
 npm run check:hands  # the hand-shape reader's laws, joint by joint (plain Node)
+npm run check:strike # the titans' reach and strike paths, and the grammar (plain Node)
 npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
-                     # and pokes its way through every menu and the whole
-                     # fireball loop with the emulator's hands
+                     # pokes its way through every menu, plays the fireball
+                     # loop, and fights RUSTHOOK (hit, dodge, palm block,
+                     # beam, a ball on its core, the win and the results)
+                     # with the emulator's hands
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 ```
