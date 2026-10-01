@@ -153,7 +153,7 @@ export class FireballSystem extends createSystem({}) {
         b.samples.length = 0;
         b.pos.copy(hands[b.side].palm);
         b.group.visible = false;
-        hum(`ball-${b.side}`, 'ball', b.pos, 0);
+        hum(`ball-${b.side}`, 'fire', b.pos, 0);
       }
       return;
     }
@@ -255,10 +255,10 @@ export class FireballSystem extends createSystem({}) {
       const lit = b.state !== State.Hover;
       b.group.scale.setScalar(lit ? 1 : 0.55);
       b.core.visible = lit;
-      // Its hum: only while it flies, faintly, so you can hear where it is.
-      // In your hand it's silent: a ball held all fight long next to your
-      // ears was a drone you couldn't get away from.
-      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible && away ? 0.025 : 0, 1.5);
+      // In flight it roars like the flame it is, so you can hear where it
+      // is; in your hand it's quiet (as in FIRE FIGHT 2: a ball held all
+      // fight long next to your ears would be a drone you can't escape).
+      hum(`ball-${b.side}`, 'fire', b.pos, b.group.visible && away ? 0.22 : 0, b.state === State.Returning ? 1.25 : 1);
       if (away) {
         b.trail -= delta;
         if (b.trail <= 0) {

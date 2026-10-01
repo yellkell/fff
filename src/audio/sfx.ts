@@ -207,6 +207,46 @@ function noise(dur: number, gain: number, fromHz: number, toHz: number, delay = 
   src.start(t0);
 }
 
+/** Soft saturation for noiseHit: a gentle tanh curve (FF2's). */
+const SHAPE = (() => {
+  const n = 512;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * 2.2);
+  }
+  return curve;
+})();
+
+/** A short lowpassed, saturated noise hit with a fast natural decay: a
+ *  puff, a slap, a thud (FF2's). */
+function noiseHit(dur: number, gain: number, cutFrom: number, cutTo: number, q = 0.7, delay = 0): void {
+  if (!cur) return;
+  const { c, dest } = cur;
+  const t0 = c.currentTime + delay;
+  const frames = Math.max(1, Math.floor(c.sampleRate * dur));
+  const buf = c.createBuffer(1, frames, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < frames; i++) {
+    const p = i / frames;
+    data[i] = (Math.random() * 2 - 1) * (1 - p) ** 1.5;
+  }
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = q;
+  lp.frequency.setValueAtTime(cutFrom, t0);
+  lp.frequency.exponentialRampToValueAtTime(Math.max(60, cutTo), t0 + dur * 0.75);
+  const sh = c.createWaveShaper();
+  sh.curve = SHAPE;
+  sh.oversample = '2x';
+  const g = c.createGain();
+  g.gain.value = gain;
+  src.connect(lp).connect(sh).connect(g).connect(dest);
+  src.start(t0);
+}
+
 /** Struck plate: an inharmonic partial stack over a noise tick. */
 function clank(base: number, gain = 0.2, dur = 0.3, delay = 0): void {
   if (!cur) return;
@@ -392,31 +432,63 @@ function ratchet(dur: number, gain: number, fromHz: number, toHz: number): void 
 /** Every sound's body, by name: the game's calls, the sound board and the
  *  offline renderer all go through these. `k` is a 0–1 knob some use. */
 export const SOUNDS = {
-  // Fireballs. You make these sounds hundreds of times a fight, right
-  // under your ears, so they're soft, low and short: a body you feel more
-  // than a sound you hear, no zaps, no hiss, no whistling sweeps.
+  // Fireballs: FIRE, as FIRE FIGHT 2 has them (its ignite, throw, recall
+  // and catch, verbatim). No neon here: these are flames.
   ignite: () => {
-    noise(0.18, 0.08, 160, 600, 0, 0.8); // the flame catching
-    tone({ freq: 90, to: 55, dur: 0.16, gain: 0.14 });
+    clank(1900, 0.05, 0.06); // igniter latch
+    noise(0.32, 0.15, 140, 850); // furnace catching
+    tone({ freq: 70, to: 46, dur: 0.22, gain: 0.16 }); // sub thump
   },
   throw: () => {
-    tone({ freq: 110, to: 45, dur: 0.2, gain: 0.24 }); // the whoomp you feel
-    noise(0.24, 0.12, 600, 180, 0, 0.8); // air, low
+    // A deep, smooth, FALLING whoomp: departing air over a round sub punch,
+    // nothing bright. (The recall is its tonal, RISING mirror.)
+    noise(0.38, 0.3, 1000, 190); // full-bodied departing air, falling away
+    noiseHit(0.07, 0.15, 750, 260, 0.6); // dull release puff off the hand
+    tone({ freq: 120, to: 44, dur: 0.2, gain: 0.28 }); // the WHOOMP you feel
   },
   drop: () => {
-    tone({ freq: 240, to: 130, type: 'triangle', dur: 0.14, gain: 0.1 }); // settling back to sleep
+    // Opened without a punch: the flame gutters down to a pilot light.
+    noiseHit(0.16, 0.14, 900, 200, 0.6);
+    tone({ freq: 90, to: 55, dur: 0.14, gain: 0.1 });
   },
   recall: () => {
-    tone({ freq: 196, to: 392, type: 'triangle', dur: 0.2, gain: 0.08 });
-    noise(0.2, 0.05, 300, 800, 0, 0.8);
+    // The throw's mirror: a tonal, RISING pull over air rushing back in.
+    tone({ freq: 220, to: 980, dur: 0.3, gain: 0.13 }); // the pull, rising
+    tone({ freq: 331, to: 1470, dur: 0.3, gain: 0.06, delay: 0.02 }); // shimmer above
+    noise(0.36, 0.13, 260, 1900); // air rushing IN: the throw reversed
+    servo(180, 700, 0.24, 0.06);
   },
   catch: () => {
-    pluck(660, 0.06, 0.08);
-    tone({ freq: 130, to: 85, type: 'triangle', dur: 0.08, gain: 0.14 });
+    // ARRIVAL, not another whoosh: a latch over a slap and a damped thud.
+    clank(430, 0.15, 0.14);
+    noiseHit(0.05, 0.14, 3400, 900, 0.7); // the slap under the latch
+    tone({ freq: 140, to: 88, type: 'triangle', dur: 0.08, gain: 0.18 });
   },
   fizzle: () => {
-    noise(0.22, 0.1, 900, 250, 0, 0.8);
-    tone({ freq: 180, to: 80, type: 'triangle', dur: 0.18, gain: 0.1 });
+    // Burnt out, or into your floor: a flame snuffed, hissing away.
+    noise(0.4, 0.22, 2600, 500, 0, 1.4);
+    noiseHit(0.12, 0.16, 700, 150, 0.6);
+  },
+  fireRoar: () => {
+    // A second of a ball's flight roar (the loop a flying ball plays), for
+    // the sound board.
+    if (!cur) return;
+    const { c, dest } = cur;
+    const t0 = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = fireBuffer(c);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 700;
+    bp.Q.value = 0.5;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.08);
+    g.gain.setValueAtTime(0.5, t0 + 0.9);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(t0);
+    src.stop(t0 + 1.25);
   },
   targetPop: () => {
     [880, 1109, 1319, 1760].forEach((f, i) => pluck(f, 0.1, 0.16, i * 0.045));
@@ -613,10 +685,12 @@ export function sfx(name: SoundName, at?: Pos, k?: number): void {
 
 /* ── hums ──────────────────────────────────────────────────────────────── */
 
-export type HumKind = 'ball' | 'engine';
+export type HumKind = 'fire' | 'engine';
 
 interface HumVoice {
   oscs: OscillatorNode[];
+  /** A fire's looping roar (no oscillators). */
+  roar: AudioBufferSourceNode | null;
   filter: BiquadFilterNode;
   gain: GainNode;
   pan: PannerNode;
@@ -626,36 +700,74 @@ interface HumVoice {
 
 const hums = new Map<string, HumVoice>();
 
+/** Two seconds of fire, to loop: a dark rumbling roar with crackles
+ *  scattered through it (sharp little pops, each decaying fast). */
+function fireBuffer(c: BaseAudioContext): AudioBuffer {
+  const n = Math.floor(c.sampleRate * 2);
+  const buf = c.createBuffer(1, n, c.sampleRate);
+  const d = buf.getChannelData(0);
+  let low = 0;
+  let pop = 0;
+  for (let i = 0; i < n; i++) {
+    // The roar: noise through a soft one-pole lowpass, slowly breathing.
+    low += ((Math.random() * 2 - 1) - low) * 0.06;
+    const breathe = 0.75 + 0.25 * Math.sin((i / n) * Math.PI * 2 * 3);
+    // Crackles: rare sharp pops.
+    if (Math.random() < 30 / c.sampleRate) pop = 0.5 + Math.random() * 0.5;
+    pop *= 0.996;
+    d[i] = low * 2.4 * breathe + (Math.random() * 2 - 1) * pop * 0.45;
+  }
+  // Fade the seam, so the loop never clicks.
+  const f = Math.floor(c.sampleRate * 0.02);
+  for (let i = 0; i < f; i++) {
+    const k = i / f;
+    d[n - 1 - i] = d[n - 1 - i] * k + d[i] * (1 - k);
+  }
+  return buf;
+}
+
 function makeHum(c: AudioContext, kind: HumKind): HumVoice {
   const gain = c.createGain();
   gain.gain.value = 0;
   const pan = c.createPanner();
   pan.panningModel = 'HRTF';
   pan.distanceModel = 'inverse';
-  pan.refDistance = kind === 'ball' ? 0.3 : 1;
+  pan.refDistance = kind === 'fire' ? 0.3 : 1;
   pan.rolloffFactor = 0.9;
   const filter = c.createBiquadFilter();
-  filter.type = 'lowpass';
   const oscs: OscillatorNode[] = [];
-  // A ball: a soft triangle and its fifth, a live neon tube's hum. The
-  // engine: a low triangle and its octave, a machine ticking over. Both
-  // purely tuned and darkly filtered: they run all fight long, so nothing
-  // in them may beat, buzz or whine (saws and detuned pairs did).
-  const base = kind === 'ball' ? 196 : 55;
-  const shape: OscillatorType = 'triangle';
-  filter.frequency.value = kind === 'ball' ? 900 : 260;
-  filter.Q.value = 0.7;
-  const mults = kind === 'ball' ? [1, 1.5] : [1, 2];
-  for (const mult of mults) {
-    const o = c.createOscillator();
-    o.type = shape;
-    o.frequency.value = base * mult;
-    o.connect(filter);
-    o.start();
-    oscs.push(o);
+  let roar: AudioBufferSourceNode | null = null;
+  let mults: number[] = [];
+  let base = 1;
+  if (kind === 'fire') {
+    // A ball in flight: the roar of a flame rushing through the air.
+    roar = c.createBufferSource();
+    roar.buffer = fireBuffer(c);
+    roar.loop = true;
+    filter.type = 'bandpass';
+    filter.frequency.value = 700;
+    filter.Q.value = 0.5;
+    roar.connect(filter);
+    roar.start();
+  } else {
+    // The engine: a low triangle and its octave, a machine ticking over,
+    // purely tuned and darkly filtered (it runs all fight long).
+    filter.type = 'lowpass';
+    filter.frequency.value = 260;
+    filter.Q.value = 0.7;
+    base = 55;
+    mults = [1, 2];
+    for (const mult of mults) {
+      const o = c.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = base * mult;
+      o.connect(filter);
+      o.start();
+      oscs.push(o);
+    }
   }
   filter.connect(gain).connect(pan).connect(master!);
-  return { oscs, filter, gain, pan, base, mults };
+  return { oscs, roar, filter, gain, pan, base, mults };
 }
 
 /**
@@ -675,6 +787,7 @@ export function hum(id: string, kind: HumKind, at: Vector3, level: number, pitch
   h.gain.gain.setTargetAtTime(Math.max(0, level), t, 0.05);
   const v = h;
   v.oscs.forEach((o, i) => o.frequency.setTargetAtTime(v.base * pitch * v.mults[i], t, 0.05));
+  v.roar?.playbackRate.setTargetAtTime(pitch, t, 0.05);
   if (h.pan.positionX) {
     h.pan.positionX.setTargetAtTime(at.x, t, 0.02);
     h.pan.positionY.setTargetAtTime(at.y, t, 0.02);
