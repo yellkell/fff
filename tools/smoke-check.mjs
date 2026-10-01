@@ -455,13 +455,49 @@ if (offered) {
   s = await S();
   t = await T();
   check('PISTONKAISER falls to the results face', s.mode === 'home' && t.result?.titan === 'PISTONKAISER' && t.result?.won === true, JSON.stringify(t.result));
-  check('and NEXT TITAN locks again: VULTURE is still being built', s.buttons.next.locked);
+
+  // ── VULTURE, from NEXT TITAN again ──
+  check('NEXT TITAN is open again for VULTURE', !s.buttons.next.locked);
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('NEXT TITAN prints VULTURE in', t.name === 'VULTURE' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  {
+    const before = t.hitsTaken;
+    await debug({ force: 'volley' });
+    t = await until((x) => x.bolts >= 3 && x.act === null, 10000);
+    await settle(900); // the last bolt's flight
+    t = await T();
+    check('the VOLLEY throws three bolts from its wingtips, all landing on a head that stays put', t.bolts === 3 && t.hitsTaken - before === 3, `bolts ${t.bolts}, hits ${t.hitsTaken - before}`);
+  }
+  {
+    // 'double': a hit on the open core leaves it open; the second shuts it.
+    let hit = null;
+    for (let i = 0; i < 3 && !hit; i++) {
+      const pre = await T();
+      await place('hand-right', AIM);
+      await settle(900);
+      await pinch(1);
+      await settle(300);
+      await swing(true, AIM);
+      t = await until((x) => x.hitsLanded + x.armourHits > pre.hitsLanded + pre.armourHits, 3000);
+      if (t.hitsLanded > pre.hitsLanded) hit = t;
+    }
+    check('its weak point stays open for a second hit', hit?.open === 'core', hit ? `${hit.hitsLanded} weak · open ${hit.open}` : 'no weak hit in 3 throws');
+  }
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('VULTURE falls to the results face', s.mode === 'home' && t.result?.titan === 'VULTURE' && t.result?.won === true, JSON.stringify(t.result));
+  check('and NEXT TITAN locks again: JUGGERNAUT is still being built', s.buttons.next.locked);
   await poke('home');
   s = await S();
   check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);
   {
     const log = (await SND()).log;
-    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'weakHit', 'titanFall', 'win'];
+    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'volleyCharge', 'boltFire', 'weakHit', 'titanFall', 'win'];
     const missing = need.filter((n) => !log[n]);
     check('the fight makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : `${need.length} sounds`);
   }

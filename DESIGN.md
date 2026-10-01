@@ -114,10 +114,16 @@ two neon ones (a plucked synth note and an electric zap): no files.
   run out; the beam charge is a soft chord climbing its whole windup; the
   beam's lock is a sharp double blip: *move now*. (Both were detuned saw
   sirens at first: heard every two seconds, they grated.)
+- **Your fireballs are quiet.** You make their sounds hundreds of times a
+  fight, right by your ears: ignite, throw, recall, catch and fizzle are
+  soft, low and short (a body more than a sound), with no zaps, hiss or
+  whistling sweeps. A ball held in your hand is silent, and one that
+  drops because the cameras lost your hand drops silently (mid-fight
+  hands leave the cameras all the time; it used to zap every time).
 - **Hums** for the continuous things, kept low and pure (triangles, in
-  tune, darkly filtered: nothing that beats or buzzes, since they run all
-  fight): each ball hums at its hand (higher as it flies), and the
-  titan's engine barely ticks over until it lunges, then revs.
+  tune, darkly filtered: nothing that beats or buzzes): a ball in flight
+  hums faintly so you can hear where it is, and the titan's engine
+  barely ticks over until it lunges, then revs.
 - **SOUND** on the wrist panel mutes it all; the choice is remembered.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it
@@ -281,6 +287,43 @@ too.
   dodgeable three times running, and whether the shut point reads as
   shut from the pad.
 
+### 3.7 VULTURE, as built
+
+The executioner fights from range first.
+
+- **The volley** (FF2's one real projectile, now aimed at you): the wings
+  flare wide and forward over a 1.3 s windup, their tips swelling with
+  light under a quickening pulse; then three venom bolts leave the
+  wingtips, alternating, 0.4 s apart, each at where your head is as it
+  leaves, at 4.2 m/s. Each bolt is judged like a fist, swept frame to
+  frame: a palm facing into its travel or an orbiting ball stops it (no
+  stagger: it's a bolt, not the titan's arm); your head takes 10%. A
+  volley on a titan with no wings throws from its shoulders.
+- Its one eye fires the **beam** (weighted 3, the most so far), and its
+  talons **sweep**, **hook** and **jab**. Gaps 0.6–1.1 s.
+- **Weak points open for two hits** (FF2's `'double'`), the core first.
+  16 hits.
+- **Open, to tune on a headset:** the bolt speed and size, whether the
+  flared wings fit a room, and whether a palm block on a bolt from the
+  side feels fair.
+
+### 3.8 Hits that land
+
+`fx/impact.ts`: a pooled bloom (a glow that swells and fades round a
+white-hot heart) and one or two shockwave rings that race out facing
+you, drawn over the titan's glass so its own plates can't hide them, and
+faded by alpha (pillar 4).
+
+- **Weak point:** a big bloom and two rings in its accent, a 0.08 s
+  hit-stop (the titan's clock nearly stops; yours doesn't), every lit
+  edge on it flaring white, and a white trail on its health bar that
+  holds a moment and then catches up. The killing blow: a bigger bloom
+  at the core and three times the hit-stop.
+- **Armour:** a small bloom and one ring in its line colour.
+- **Blocks:** a white-hot bloom and two rings at your palm.
+- **You're hit:** a red ring a little way out along the blow (not in
+  your eyes), with the red flash round your head as before.
+
 ---
 
 ## 4 · 1v1 — the second mode
@@ -354,8 +397,8 @@ laid out on your floor.
 ## 8 · Build order
 
 Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
-RUSTHOOK's fight with the palm block (§3.5). Step 4 has begun:
-PISTONKAISER fights (§3.6). See the README.
+RUSTHOOK's fight with the palm block (§3.5). Step 4 is under way:
+PISTONKAISER (§3.6) and VULTURE (§3.7) fight. See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

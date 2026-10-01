@@ -17,19 +17,21 @@
 
 import { Vector3 } from 'three';
 
-export type StrikePath = 'jab' | 'hook' | 'overhand' | 'sweep' | 'piston' | 'beam';
+export type StrikePath = 'jab' | 'hook' | 'overhand' | 'sweep' | 'piston' | 'beam' | 'volley';
 
 export interface StrikeDef {
   path: StrikePath;
-  /** Which arm (0 or 1), or 'eye' for the beam. */
-  limb: 0 | 1 | 'eye';
+  /** Which arm (0 or 1), 'eye' for the beam, or 'wings' for a volley of
+   *  bolts thrown from the wingtips (from the shoulders on a titan with none). */
+  limb: 0 | 1 | 'eye' | 'wings';
   windup: number;
   strike: number;
   recover: number;
   damage: number;
   /** Blows in a chain (default 1). Each one after the first comes from the
    *  OTHER arm, wound up for `beat` seconds, aimed at where your head is by
-   *  then: keep moving on the beat. A block breaks the chain. */
+   *  then: keep moving on the beat. A block breaks the chain. On a volley
+   *  it's the bolts thrown, `beat` seconds apart. */
   combo?: number;
   beat?: number;
 }
@@ -52,9 +54,13 @@ export function windupOffset(path: StrikePath, side: number, out: Vector3): Vect
     case 'piston':
       return out.set(side * 0.05, -0.38, 0.25); // drawn right back to the hip, a ram cocked
     case 'beam':
+    case 'volley':
       return out.set(0, 0, 0);
   }
 }
+
+/** Does this move swing an arm (and so lunge, whoosh and whiff)? */
+export const isFist = (d: StrikeDef): d is StrikeDef & { limb: 0 | 1 } => d.limb === 0 || d.limb === 1;
 
 /**
  * The fist's path from `from` (the windup point) through `to` (your head,
@@ -92,6 +98,7 @@ export function strikePoint(
       break;
     }
     case 'beam':
+    case 'volley':
       return out.copy(to);
   }
   // Quadratic Bézier from → c → end.

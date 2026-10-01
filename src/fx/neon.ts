@@ -18,6 +18,7 @@ import {
   SpriteMaterial,
   Vector3,
 } from 'three';
+import type { Impacts } from './impact.js';
 
 let glowTex: CanvasTexture | null = null;
 
@@ -139,5 +140,5 @@ export class Sparks {
   }
 }
 
-/** The scene's one spark pool (created by main). */
-export const fx: { sparks: Sparks | null } = { sparks: null };
+/** The scene's one spark pool and impact pool (created by main). */
+export const fx: { sparks: Sparks | null; impacts: Impacts | null } = { sparks: null, impacts: null };

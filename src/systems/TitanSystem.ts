@@ -21,6 +21,15 @@
  *
  * Which titan you fight is `game.titan` (the console sets it); how it
  * fights is its entry in titans/fights.ts.
+ *
+ * A VOLLEY throws bolts instead of a fist: they leave the wingtips (or the
+ * shoulders), fly at where your head was as each one left, and are judged
+ * like a fist, swept frame to frame against your palms, balls and head.
+ *
+ * Hits land with weight: a flash and a shockwave where they hit
+ * (fx/impact.ts), a weak-point hit freezes the titan for a beat and flares
+ * every edge on it, and its health bar leaves a white trail of what you
+ * just took off.
  */
 
 import { createSystem } from '@iwsdk/core';
@@ -28,11 +37,13 @@ import {
   AdditiveBlending,
   BackSide,
   Box3,
+  Color,
   CylinderGeometry,
   DoubleSide,
   Group,
   type Material,
   Mesh,
+  type Object3D,
   MeshBasicMaterial,
   Plane,
   PlaneGeometry,
@@ -53,7 +64,7 @@ import { type ArmChain, reach } from '../titans/ik.js';
 import { buildTitan, type TitanRig } from '../titans/rigs.js';
 import { TITANS, type TitanLook } from '../titans/roster.js';
 import { stageScale } from '../titans/stage.js';
-import { pickStrike, segmentDistance, segmentParam, type StrikeDef, type StrikePath, strikePoint, windupOffset } from '../titans/strike.js';
+import { isFist, pickStrike, segmentDistance, segmentParam, type StrikeDef, type StrikePath, strikePoint, windupOffset } from '../titans/strike.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { orbitingBall } from './FireballSystem.js';
 
@@ -90,6 +101,25 @@ interface Act {
   /** Blows still to come in this chain (a PISTON), and whether you broke it. */
   left: number;
   blocked: boolean;
+  /** Bolts thrown so far (a volley). */
+  fired: number;
+}
+
+/** A volley's bolt in flight. */
+interface Bolt {
+  obj: Group;
+  pos: Vector3;
+  vel: Vector3;
+  age: number;
+  damage: number;
+  live: boolean;
+}
+
+/** Where a volley's bolts leave from: a point on a wingtip or shoulder. */
+interface Emitter {
+  on: Object3D;
+  local: Vector3;
+  glow: Sprite;
 }
 
 /** What the fight's done, for the probes. */
@@ -104,6 +134,8 @@ export const titanStats = {
   blocks: 0,
   hitsLanded: 0,
   armourHits: 0,
+  /** Bolts thrown this fight. */
+  bolts: 0,
 };
 
 /** Test hooks for the headless checks: force a move, hold its fire, set its health. */
@@ -125,7 +157,11 @@ const ease = (t: number): number => {
 };
 const rand = (lo: number, hi: number): number => lo + Math.random() * (hi - lo);
 /** How big each blow's whoosh is. */
-const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, piston: 0.3, beam: 0 };
+const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, piston: 0.3, beam: 0, volley: 0 };
+const WHITE = new Color(0xffffff);
+const _prev = new Vector3();
+const _into = new Vector3();
+const BOLTS = 8;
 
 type WeakOpen = 'both' | 'head' | 'core';
 
@@ -150,6 +186,17 @@ export class TitanSystem extends createSystem({}) {
   private weakFlash = 0;
   private beat = 0;
   private open: WeakOpen = 'both';
+  /** Hits on the open weak point since it opened ('double' swaps at 2). */
+  private openHits = 0;
+  /** A weak-point hit freezes it for a beat; and flares every edge on it. */
+  private hitStop = 0;
+  private edgeFlash = 0;
+  private edgeMats: { mat: MeshBasicMaterial; base: Color; opacity: number }[] = [];
+  /** The volley: bolts in flight, where they leave from, and the wings' flare. */
+  private readonly bolts: Bolt[] = [];
+  private emitters: Emitter[] = [];
+  private flare = 0;
+  private wingRest: { gy: number; gz: number; wz: number }[] = [];
 
   /** Clipping for the print-in: everything below the plane's height shows. */
   private readonly clip = new Plane(new Vector3(0, -1, 0), 0);
@@ -172,6 +219,9 @@ export class TitanSystem extends createSystem({}) {
   private hud!: Group;
   private hudFrame!: MeshBasicMaterial;
   private hudFill!: Mesh;
+  private hudChip!: Mesh;
+  private chip = 1;
+  private chipHold = 0;
   private hudName!: TextPlane;
 
   init(): void {
@@ -233,6 +283,24 @@ export class TitanSystem extends createSystem({}) {
     this.hudFill.scale.set(0.82, 0.022, 1);
     this.hudFill.renderOrder = 12;
     this.hud.add(this.hudFill);
+    // Behind it, a white trail of the health you just took off, catching up.
+    this.hudChip = new Mesh(
+      this.hudFill.geometry,
+      new MeshBasicMaterial({ color: NEON.hot, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
+    );
+    this.hudChip.position.set(-0.41, -0.03, 0.001);
+    this.hudChip.scale.set(0.82, 0.022, 1);
+    this.hudChip.renderOrder = 11;
+    this.hud.add(this.hudChip);
+
+    // The volley's bolts: a venom-bright glow round a white-hot heart.
+    for (let i = 0; i < BOLTS; i++) {
+      const obj = new Group();
+      obj.add(glowSprite(0xffffff, 0.24, 0.95), glowSprite(NEON.hot, 0.08));
+      obj.visible = false;
+      this.scene.add(obj);
+      this.bolts.push({ obj, pos: new Vector3(), vel: new Vector3(), age: 0, damage: 0, live: false });
+    }
     this.hud.visible = false;
     this.scene.add(this.hud);
 
@@ -259,7 +327,14 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  update(delta: number): void {
+  update(real: number): void {
+    // A weak-point hit stops the titan's clock for a beat (hit-stop): the
+    // blow reads as landing. Everything of yours runs on.
+    let delta = real;
+    if (this.hitStop > 0) {
+      this.hitStop -= real;
+      delta = real * 0.08;
+    }
     this.t += delta;
     const want = game.mode === 'titans';
     if (want && this.phase === 'off') this.spawn();
@@ -309,15 +384,17 @@ export class TitanSystem extends createSystem({}) {
     const a = this.act;
     if (this.phase === 'fight' && a && a.stage === 'strike') {
       if (a.def.limb === 'eye') this.beamFire(a);
+      else if (a.def.limb === 'wings') this.volleyStep(a);
       else this.judgeFist(a);
       if (a.stage === 'strike' && a.t >= a.def.strike) {
         // Missed you: it goes past your head.
-        if (!a.landed && a.def.limb !== 'eye') sfx('whiff', this.arms[a.def.limb].at);
+        if (!a.landed && isFist(a.def)) sfx('whiff', this.arms[a.def.limb].at);
         this.toRecover(a);
       }
     }
-    this.updateHud();
-    this.updateFlash(delta);
+    if (this.phase === 'fight') this.stepBolts(real);
+    this.updateHud(real);
+    this.updateFlash(real);
     this.syncStats();
   }
 
@@ -348,24 +425,24 @@ export class TitanSystem extends createSystem({}) {
       if (d.limb === 'eye') this.beamWindup(a);
       if (a.t >= d.windup) {
         // The windup ends: SNAPSHOT your head, and go.
-        if (d.limb !== 'eye') {
+        if (isFist(d)) {
           a.to.copy(_head);
           this.windupPoint(a, a.from);
         }
         this.planLunge(a);
         a.stage = 'strike';
         a.t = 0;
-        if (d.limb !== 'eye') {
+        if (isFist(d)) {
           fx.sparks?.burst(this.arms[d.limb].at, 10, this.look.accent, 1.4);
           sfx('swing', this.arms[d.limb].at, SWING[d.path]);
-        } else {
+        } else if (d.limb === 'eye') {
           sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
         }
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
       this.act = null;
       // A chain carries on from the other arm, on the beat, unless you broke it.
-      if (a.left > 0 && !a.blocked && d.limb !== 'eye') {
+      if (a.left > 0 && !a.blocked && isFist(d)) {
         this.begin({ ...d, limb: d.limb === 0 ? 1 : 0, windup: d.beat ?? d.windup }, a.left - 1);
         return;
       }
@@ -389,14 +466,17 @@ export class TitanSystem extends createSystem({}) {
       landed: false,
       left,
       blocked: false,
+      fired: 0,
     };
-    if (def.limb !== 'eye') {
+    if (isFist(def)) {
       const arm = this.arms[def.limb];
       a.outward.set(arm.side, 0, 0).transformDirection(this.rig!.root.matrixWorld);
       // The tell, from the fist that's coming: your ears know which side.
       sfx('windup', arm.at, def.windup);
-    } else {
+    } else if (def.limb === 'eye') {
       sfx('beamCharge', this.rig!.eyeFx.getWorldPosition(_v), def.windup);
+    } else {
+      sfx('volleyCharge', this.armour.pos, def.windup);
     }
     this.act = a;
   }
@@ -404,14 +484,14 @@ export class TitanSystem extends createSystem({}) {
   private toRecover(a: Act): void {
     a.stage = 'recover';
     a.t = 0;
-    if (a.def.limb !== 'eye') a.home.copy(this.arms[a.def.limb].at);
+    if (isFist(a.def)) a.home.copy(this.arms[a.def.limb].at);
     this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
     this.rig!.eyeFx.visible = false;
   }
 
   /** How far to step in so the blow can reach where you are. */
   private planLunge(a: Act): void {
-    if (a.def.limb === 'eye') {
+    if (!isFist(a.def)) {
       a.lunge = 0;
       return;
     }
@@ -453,6 +533,8 @@ export class TitanSystem extends createSystem({}) {
       a.landed = true;
       this.hurt(a.def.damage, true);
       fx.sparks?.burst(to, 30, NEON.danger, 2);
+      // The shockwave a little way out along the blow, not in your eyes.
+      fx.impacts?.hit(_v.copy(from).sub(to).setLength(0.35).add(to), NEON.danger, 0.4, 1);
       sfx('hitTaken');
       this.toRecover(a);
     }
@@ -461,6 +543,7 @@ export class TitanSystem extends createSystem({}) {
   private blocked(a: Act, at: Vector3): void {
     titanStats.blocks++;
     fx.sparks?.burst(at, 40, NEON.hot, 2.4);
+    fx.impacts?.hit(at, NEON.hot, 0.5, 2);
     sfx('block', at);
     sfx('titanGrunt', this.rig!.head.getWorldPosition(_w));
     this.stagger = FIGHT.stagger;
@@ -520,6 +603,7 @@ export class TitanSystem extends createSystem({}) {
         a.landed = true;
         titanStats.blocks++;
         this.stagger = FIGHT.stagger * 0.6;
+        fx.impacts?.hit(end, this.look.accent, 0.45, 2);
         sfx('block', end);
       }
       if (Math.random() < 0.6) fx.sparks?.burst(end, 4, NEON.hot, 1.6);
@@ -541,6 +625,89 @@ export class TitanSystem extends createSystem({}) {
     m.scale.set(r, len, r);
   }
 
+  /* ── the volley ────────────────────────────────────────────────────── */
+
+  /** Throw each bolt as its beat comes round, from alternating tips. */
+  private volleyStep(a: Act): void {
+    const n = a.def.combo ?? 1;
+    const beat = a.def.beat ?? 0.4;
+    while (a.fired < n && a.t >= a.fired * beat) {
+      this.throwBolt(a.fired, a.def.damage);
+      a.fired++;
+    }
+  }
+
+  private throwBolt(i: number, damage: number): void {
+    const b = this.bolts.find((x) => !x.live);
+    const e = this.emitters[i % this.emitters.length];
+    if (!b || !e) return;
+    e.on.localToWorld(b.pos.copy(e.local));
+    // At where your head is as it leaves: keep moving.
+    b.vel.copy(_head).sub(b.pos).setLength(FIGHT.boltSpeed);
+    b.age = 0;
+    b.damage = damage;
+    b.live = true;
+    b.obj.position.copy(b.pos);
+    b.obj.visible = true;
+    titanStats.bolts++;
+    fx.sparks?.burst(b.pos, 14, this.look.accent, 1.2);
+    fx.impacts?.hit(b.pos, this.look.accent, 0.3, 0);
+    sfx('boltFire', b.pos);
+  }
+
+  /** Bolts in flight, swept frame to frame: palms and balls, then your head. */
+  private stepBolts(delta: number): void {
+    for (const b of this.bolts) {
+      if (!b.live) continue;
+      b.age += delta;
+      _prev.copy(b.pos);
+      b.pos.addScaledVector(b.vel, delta);
+      b.obj.position.copy(b.pos);
+      if (Math.random() < 0.8) fx.sparks?.burst(b.pos, 1, this.look.accent, 0.25);
+      // A palm blocks by facing into the bolt's travel.
+      _into.copy(b.vel).normalize().negate();
+      let stop: Vector3 | null = null;
+      for (const side of SIDES) {
+        const ball = orbitingBall(side);
+        if (ball && segmentDistance(_prev, b.pos, ball) <= FIGHT.boltRadius + FIREBALL.radius) {
+          stop = ball;
+          break;
+        }
+        const h = hands[side];
+        if (!h.shape.tracked || h.shape.closed) continue;
+        if (segmentDistance(_prev, b.pos, h.palm) > FIGHT.boltRadius + FIGHT.palmReach) continue;
+        if (h.palmNormal.dot(_into) >= FIGHT.palmFacing) {
+          stop = h.palm;
+          break;
+        }
+      }
+      if (stop) {
+        titanStats.blocks++;
+        fx.sparks?.burst(stop, 24, NEON.hot, 2);
+        fx.impacts?.hit(stop, this.look.accent, 0.35, 1);
+        sfx('block', stop);
+        this.killBolt(b);
+      } else if (segmentDistance(_prev, b.pos, _head) <= FIGHT.boltRadius + FIGHT.headRadius) {
+        this.hurt(b.damage, true);
+        fx.sparks?.burst(b.pos, 24, NEON.danger, 1.8);
+        sfx('hitTaken');
+        this.killBolt(b);
+      } else if (b.age > FIGHT.boltLife || b.pos.y < 0) {
+        fx.sparks?.burst(b.pos, 10, this.look.accent, 0.8);
+        this.killBolt(b);
+      }
+    }
+  }
+
+  private killBolt(b: Bolt): void {
+    b.live = false;
+    b.obj.visible = false;
+  }
+
+  private clearBolts(): void {
+    for (const b of this.bolts) this.killBolt(b);
+  }
+
   /* ── being hit, and hitting ────────────────────────────────────────── */
 
   /** Is this weak point open right now? */
@@ -552,19 +719,35 @@ export class TitanSystem extends createSystem({}) {
     titanStats.hitsLanded++;
     this.hp = Math.max(0, this.hp - 1 / this.fight.hits);
     titanStats.hp = this.hp;
-    // Taking turns: every hit shuts this one and opens the other.
-    if (this.open !== 'both') this.open = this.open === 'head' ? 'core' : 'head';
+    // Taking turns: shut this one and open the other, after one hit
+    // ('alternate') or two ('double').
+    if (this.open !== 'both' && ++this.openHits >= (this.fight.weak === 'double' ? 2 : 1)) {
+      this.open = this.open === 'head' ? 'core' : 'head';
+      this.openHits = 0;
+    }
     this.weakFlash = 1;
     this.flinch = Math.max(this.flinch, 0.7);
+    this.hitStop = FIGHT.hitStop;
+    this.edgeFlash = 1;
+    this.chipHold = 0.45;
     fx.sparks?.burst(at, 50, this.look.accent, 2.6);
+    fx.sparks?.burst(at, 20, NEON.hot, 1.6);
+    fx.impacts?.hit(at, this.look.accent, 0.8, 2);
     sfx('weakHit', at);
-    if (this.hp <= 0) this.enter('falling');
+    if (this.hp <= 0) {
+      // The killing blow: the whole machine goes up in light.
+      fx.sparks?.burst(this.weakCore.pos, 120, this.look.accent, 3.2);
+      fx.impacts?.hit(this.weakCore.pos, this.look.accent, 1.8, 2);
+      this.hitStop = FIGHT.hitStop * 3;
+      this.enter('falling');
+    }
     return 'stop';
   }
 
   private armourHit(at: Vector3): 'stop' {
     titanStats.armourHits++;
     fx.sparks?.burst(at, 16, this.look.line, 1.2);
+    fx.impacts?.hit(at, this.look.line, 0.22, 1);
     sfx('armour', at);
     return 'stop';
   }
@@ -597,11 +780,11 @@ export class TitanSystem extends createSystem({}) {
 
     // The lunge in behind a blow, and back.
     let lungeWant = 0;
-    if (a && a.def.limb !== 'eye') {
+    if (a && isFist(a.def)) {
       if (a.stage === 'windup') lungeWant = a.lunge * 0.25 * ease(a.t / a.def.windup);
       else if (a.stage === 'strike') lungeWant = a.lunge;
     }
-    if (a && a.stage === 'windup' && a.def.limb !== 'eye' && a.lunge === 0) {
+    if (a && a.stage === 'windup' && isFist(a.def) && a.lunge === 0) {
       // Pre-plan from where you are now, so the windup can lean in early.
       a.to.copy(_head);
       this.planLunge(a);
@@ -638,6 +821,28 @@ export class TitanSystem extends createSystem({}) {
       const u = a && a.def.limb === i && a.stage === 'windup' ? a.t / a.def.windup : 0;
       arm.glow.visible = u > 0;
       arm.glow.scale.setScalar(0.1 + 0.5 * u * this.look.scale);
+    }
+
+    // A volley: the wings flare wide and forward, the tips swell with light.
+    const volley = a && a.def.limb === 'wings' && a.stage !== 'recover' ? a : null;
+    this.flare += ((volley ? 1 : 0) - this.flare) * Math.min(1, delta * 5);
+    rig.wings.forEach((w, i) => {
+      const r = this.wingRest[i];
+      w.group.rotation.y = r.gy * (1 - 0.9 * this.flare);
+      w.group.rotation.z = r.gz + w.side * 0.3 * this.flare;
+      w.wrist.rotation.z = r.wz - w.side * 0.35 * this.flare;
+    });
+    const charge = volley ? (volley.stage === 'windup' ? volley.t / volley.def.windup : 1) : 0;
+    for (const e of this.emitters) {
+      e.glow.visible = charge > 0;
+      e.glow.scale.setScalar((0.08 + 0.3 * charge) / this.k);
+    }
+
+    // A weak-point hit flares every lit edge on it, white, for a moment.
+    this.edgeFlash = Math.max(0, this.edgeFlash - delta * 5);
+    for (const e of this.edgeMats) {
+      if (e.mat.transparent) e.mat.opacity = e.opacity * (1 + 3 * this.edgeFlash);
+      else e.mat.color.copy(e.base).lerp(WHITE, 0.85 * this.edgeFlash);
     }
 
     // An open weak point blinks; a shut one sits dim and steady.
@@ -762,7 +967,38 @@ export class TitanSystem extends createSystem({}) {
     this.hudFrame.color.setHex(this.look.line);
     (this.scanRing.material as MeshBasicMaterial).color.setHex(this.look.accent);
     // The core opens first when they take turns: it's the easier shot.
-    this.open = this.fight.weak === 'alternate' ? 'core' : 'both';
+    this.open = this.fight.weak === 'both' ? 'both' : 'core';
+    this.openHits = 0;
+
+    // Its lit edges, to flare on a hit.
+    const seen = new Set<Material>();
+    this.edgeMats = [];
+    rig.root.traverse((o) => {
+      if (o.name !== 'neon-edges' && o.name !== 'neon-halo') return;
+      const mat = (o as Mesh).material as MeshBasicMaterial;
+      if (seen.has(mat)) return;
+      seen.add(mat);
+      this.edgeMats.push({ mat, base: mat.color.clone(), opacity: mat.opacity });
+    });
+    this.edgeFlash = 0;
+
+    // Where a volley leaves from: the wingtips, or failing wings the shoulders.
+    this.wingRest = rig.wings.map((w) => ({ gy: w.group.rotation.y, gz: w.group.rotation.z, wz: w.wrist.rotation.z }));
+    this.flare = 0;
+    const tips: [Object3D, Vector3][] = rig.wings.length
+      ? rig.wings.map((w) => [w.wrist, new Vector3(w.side * 0.44 * s, 0, 0)])
+      : rig.shoulders.map((m) => [m, new Vector3()]);
+    this.emitters = tips.map(([on, local]) => {
+      const glow = glowSprite(this.look.accent, 1, 0.95);
+      glow.visible = false;
+      glow.position.copy(local);
+      on.add(glow);
+      return { on, local, glow };
+    });
+    for (const b of this.bolts) (b.obj.children[0] as Sprite).material.color.setHex(this.look.accent);
+    this.chip = 1;
+    this.chipHold = 0;
+    this.hitStop = 0;
 
     this.hp = 1;
     game.playerHp = 1;
@@ -773,7 +1009,7 @@ export class TitanSystem extends createSystem({}) {
     this.stagger = 0;
     this.lunge = 0;
     this.fightTime = 0;
-    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0 });
+    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0 });
     this.enter('rising');
     this.printTo(0);
   }
@@ -790,6 +1026,7 @@ export class TitanSystem extends createSystem({}) {
     }
     if (p === 'falling') {
       this.act = null;
+      this.clearBolts();
       this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
       if (this.rig) this.rig.eyeFx.visible = false;
     }
@@ -814,6 +1051,8 @@ export class TitanSystem extends createSystem({}) {
 
   private despawn(): void {
     hum('titan', 'engine', this.armour.pos, 0);
+    this.clearBolts();
+    this.emitters = [];
     this.rig?.dispose();
     this.rig = null;
     this.arms = [];
@@ -840,10 +1079,14 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  private updateHud(): void {
+  private updateHud(delta: number): void {
     const rig = this.rig!;
     this.hud.visible = this.phase === 'fight';
     if (!this.hud.visible) return;
+    // The trail holds a moment, then catches the bar up.
+    if (this.chipHold > 0) this.chipHold -= delta;
+    else this.chip = Math.max(this.hp, this.chip - delta * 0.5);
+    this.hudChip.scale.x = Math.max(0.0001, 0.82 * this.chip);
     const top = Math.min(STAGE.maxHeight + 0.05, rig.height * this.k + 0.12);
     this.hud.position.set(rig.root.position.x, top, rig.root.position.z);
     this.hud.lookAt(_head);

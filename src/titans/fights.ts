@@ -17,13 +17,22 @@
  * weak points take turns (FF2's 'alternate'): only one blinks at a time,
  * and every hit you land on it flips to the other. Shorter gaps than
  * RUSTHOOK, two more hits to fell.
+ *
+ * VULTURE, the executioner, fights from range first: its signature is the
+ * VOLLEY (FF2's one real projectile, now aimed at you), its wings flaring
+ * wide and three venom bolts spat from the wingtips, a beat apart, each at
+ * where your head is as it leaves. Dodge them, or put a palm or an
+ * orbiting ball in their way. Its one eye fires the beam more than any
+ * titan before it, and its talons hook and scythe. Its weak points stay
+ * open for TWO hits before they swap (FF2's 'double'). Sixteen hits.
  */
 
 import type { StrikeDef, StrikePath } from './strike.js';
 
 /** How the weak points open (FF2's names): 'both' are open all fight;
- *  'alternate' opens one at a time, swapping on every hit landed. */
-export type WeakPattern = 'both' | 'alternate';
+ *  'alternate' opens one at a time, swapping on every hit landed;
+ *  'double' opens one at a time, swapping after every second hit. */
+export type WeakPattern = 'both' | 'alternate' | 'double';
 
 export interface TitanFight {
   moves: StrikeDef[];
@@ -60,6 +69,19 @@ export const FIGHTS: Record<string, TitanFight> = {
     hits: 14,
     weak: 'alternate',
     gap: [0.6, 1.2],
+  },
+  VULTURE: {
+    moves: [
+      { path: 'volley', limb: 'wings', windup: 1.3, strike: 1.2, recover: 0.7, damage: 0.1, combo: 3, beat: 0.4 },
+      { path: 'beam', limb: 'eye', windup: 1.3, strike: 0.35, recover: 0.5, damage: 0.2 },
+      { path: 'sweep', limb: 1, windup: 1.1, strike: 0.6, recover: 0.75, damage: 0.2 },
+      { path: 'hook', limb: 0, windup: 1.0, strike: 0.5, recover: 0.65, damage: 0.2 },
+      { path: 'jab', limb: 1, windup: 0.75, strike: 0.38, recover: 0.5, damage: 0.15 },
+    ],
+    weights: { volley: 4, beam: 3, sweep: 3, hook: 2, jab: 2 },
+    hits: 16,
+    weak: 'double',
+    gap: [0.6, 1.1],
   },
 };
 

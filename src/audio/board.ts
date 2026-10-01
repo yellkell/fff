@@ -54,6 +54,8 @@ const GROUPS: { title: string; cues: Cue[] }[] = [
       { name: 'beamCharge', label: 'Beam charge', what: 'the eye tracks you', k: 1.5 },
       { name: 'beamLock', label: 'Beam lock', what: 'move now' },
       { name: 'beamFire', label: 'Beam fire', what: 'down the locked line' },
+      { name: 'volleyCharge', label: 'Volley charge', what: 'the wings flare', k: 1.3 },
+      { name: 'boltFire', label: 'Bolt', what: 'one leaves a wingtip' },
       { name: 'weakHit', label: 'Weak point', what: 'your ball on visor or core' },
       { name: 'armour', label: 'Armour', what: 'your ball sparks off' },
       { name: 'heartbeat', label: 'Heartbeat', what: 'you’re nearly done' },

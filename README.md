@@ -81,9 +81,24 @@ rebuilt for the headsets that ship without controllers. **Read
     first), and every hit you land on it opens the other. A ball on the
     shut one just sparks off. Fourteen hits fell it.
 
+- **VULTURE fights** (DESIGN §3.7), next after PISTONKAISER:
+  - its signature is the **volley**: its wings flare wide and three venom
+    bolts leave the wingtips a beat apart, each at where your head is as
+    it leaves. Dodge them, or catch them on a palm or an orbiting ball;
+  - its one eye fires the beam more than any titan before it, and its
+    talons hook, scythe and jab;
+  - its weak points stay open for **two** hits before they swap. Sixteen
+    hits fell it.
+
+- **Hits that land** (`src/fx/impact.ts`). Every hit flashes and throws a
+  shockwave ring that faces you; a weak-point hit also freezes the titan
+  for a beat, flares every lit edge on it white, and leaves a white trail
+  on its health bar showing what you just took off. The killing blow goes
+  up in light.
+
 - **Sound** (`src/audio/sfx.ts`, DESIGN §2.2). Every sound synthesised
-  live, no files: fireballs that hum softly in your hands and whoomp
-  away, menus that tick and click, and a titan you can *hear* coming, its
+  live, no files: fireballs that catch, whoomp away and come home with
+  soft, low sounds (silent while you hold them), menus that tick and click, and a titan you can *hear* coming, its
   windup ticking faster and higher from the fist that's about to swing,
   the beam's chord climbing from its eye, a heartbeat when you're nearly
   done. Positioned sounds come from
@@ -101,7 +116,7 @@ rebuilt for the headsets that ship without controllers. **Read
   faded to black but still drawn was a black dot hanging in the room.
   Sparks and the platform's glow now fade their alpha with their light.
 
-Next up: tune RUSTHOOK and PISTONKAISER on a headset, then VULTURE.
+Next up: tune the first three titans on a headset, then JUGGERNAUT.
 
 ## Run it
 
@@ -125,7 +140,8 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # loop, and fights RUSTHOOK (hit, dodge, palm block,
                      # beam, a ball on its core, the win and the results),
                      # then PISTONKAISER from NEXT TITAN (the piston chain,
-                     # weak points taking turns) with the emulator's hands
+                     # weak points taking turns) and VULTURE (the volley,
+                     # weak points open for two hits) with the emulator's hands
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 npm run check:sounds # needs `npm run dev`: every sound renders, audible and

@@ -5,10 +5,11 @@
  */
 
 import { createSystem, launchXR, SessionMode, World } from '@iwsdk/core';
-import { AmbientLight } from 'three';
+import { AmbientLight, Vector3 } from 'three';
 import { buildPlatform } from './arena/platform.js';
 import { musicState } from './audio/music.js';
 import { audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
+import { Impacts } from './fx/impact.js';
 import { fx, Sparks } from './fx/neon.js';
 import { game } from './game/state.js';
 import { AudioSystem } from './systems/AudioSystem.js';
@@ -28,10 +29,13 @@ const container = document.getElementById('scene-container') as HTMLDivElement;
 const enter = document.getElementById('enter') as HTMLButtonElement;
 const status = document.getElementById('status') as HTMLParagraphElement;
 
-/** Ticks the shared spark pool. */
+const _head = new Vector3();
+
+/** Ticks the shared spark and impact pools. */
 class FxSystem extends createSystem({}) {
   update(delta: number): void {
     fx.sparks?.update(delta);
+    fx.impacts?.update(delta, this.camera.getWorldPosition(_head));
   }
 }
 
@@ -51,6 +55,7 @@ World.create(container, {
 
   world.scene.add(buildPlatform());
   fx.sparks = new Sparks(world.scene);
+  fx.impacts = new Impacts(world.scene);
 
   // Order: hands first (everything reads them); then the menus place their
   // panels and the poke system presses them; then what plays on the hands.

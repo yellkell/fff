@@ -392,34 +392,31 @@ function ratchet(dur: number, gain: number, fromHz: number, toHz: number): void 
 /** Every sound's body, by name: the game's calls, the sound board and the
  *  offline renderer all go through these. `k` is a 0–1 knob some use. */
 export const SOUNDS = {
-  // Fireballs.
+  // Fireballs. You make these sounds hundreds of times a fight, right
+  // under your ears, so they're soft, low and short: a body you feel more
+  // than a sound you hear, no zaps, no hiss, no whistling sweeps.
   ignite: () => {
-    noise(0.3, 0.14, 180, 1600); // the neon catching
-    zap(220, 880, 0.16, 0.07);
-    tone({ freq: 72, to: 46, dur: 0.2, gain: 0.16 });
+    noise(0.18, 0.08, 160, 600, 0, 0.8); // the flame catching
+    tone({ freq: 90, to: 55, dur: 0.16, gain: 0.14 });
   },
   throw: () => {
-    noise(0.36, 0.28, 1100, 200); // departing air, falling away
-    tone({ freq: 120, to: 44, dur: 0.2, gain: 0.26 }); // the whoomp you feel
-    zap(900, 260, 0.2, 0.05);
+    tone({ freq: 110, to: 45, dur: 0.2, gain: 0.24 }); // the whoomp you feel
+    noise(0.24, 0.12, 600, 180, 0, 0.8); // air, low
   },
   drop: () => {
-    zap(520, 180, 0.18, 0.3); // lit ball going back to sleep
-    noise(0.2, 0.26, 900, 300);
+    tone({ freq: 240, to: 130, type: 'triangle', dur: 0.14, gain: 0.1 }); // settling back to sleep
   },
   recall: () => {
-    tone({ freq: 220, to: 980, dur: 0.3, gain: 0.12 });
-    tone({ freq: 331, to: 1470, dur: 0.3, gain: 0.05, delay: 0.02 });
-    noise(0.34, 0.12, 260, 1900);
+    tone({ freq: 196, to: 392, type: 'triangle', dur: 0.2, gain: 0.08 });
+    noise(0.2, 0.05, 300, 800, 0, 0.8);
   },
   catch: () => {
-    pluck(880, 0.1, 0.12);
-    pluck(1320, 0.06, 0.1, 0.03);
-    tone({ freq: 140, to: 88, type: 'triangle', dur: 0.08, gain: 0.16 });
+    pluck(660, 0.06, 0.08);
+    tone({ freq: 130, to: 85, type: 'triangle', dur: 0.08, gain: 0.14 });
   },
   fizzle: () => {
-    noise(0.25, 0.26, 2400, 400);
-    zap(700, 120, 0.22, 0.13);
+    noise(0.22, 0.1, 900, 250, 0, 0.8);
+    tone({ freq: 180, to: 80, type: 'triangle', dur: 0.18, gain: 0.1 });
   },
   targetPop: () => {
     [880, 1109, 1319, 1760].forEach((f, i) => pluck(f, 0.1, 0.16, i * 0.045));
@@ -493,6 +490,18 @@ export const SOUNDS = {
     rise(220, 660, k, 0.12, 'triangle', 1400);
     rise(330, 990, k, 0.05, 'sine', 1800);
     rise(110, 220, k, 0.1, 'sine', 500);
+  },
+  volleyCharge: (k = 1) => {
+    // The wings flaring: a low pulse that quickens, under a rising fourth.
+    rise(147, 294, k, 0.1, 'triangle', 900);
+    rise(196, 392, k, 0.06, 'triangle', 900);
+    ratchet(k, 0.06, 196, 392);
+  },
+  boltFire: () => {
+    // A venom bolt spat from a wingtip: a soft hiss and a dropping note.
+    noise(0.16, 0.12, 1800, 700, 0, 1.4);
+    tone({ freq: 520, to: 240, type: 'triangle', dur: 0.14, gain: 0.12 });
+    tone({ freq: 95, to: 60, dur: 0.12, gain: 0.12 });
   },
   beamLock: () => {
     pluck(1976, 0.09, 0.08);
