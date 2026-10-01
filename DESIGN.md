@@ -114,10 +114,16 @@ two neon ones (a plucked synth note and an electric zap): no files.
   run out; the beam charge is a soft chord climbing its whole windup; the
   beam's lock is a sharp double blip: *move now*. (Both were detuned saw
   sirens at first: heard every two seconds, they grated.)
+- **Your fireballs are quiet.** You make their sounds hundreds of times a
+  fight, right by your ears: ignite, throw, recall, catch and fizzle are
+  soft, low and short (a body more than a sound), with no zaps, hiss or
+  whistling sweeps. A ball held in your hand is silent, and one that
+  drops because the cameras lost your hand drops silently (mid-fight
+  hands leave the cameras all the time; it used to zap every time).
 - **Hums** for the continuous things, kept low and pure (triangles, in
-  tune, darkly filtered: nothing that beats or buzzes, since they run all
-  fight): each ball hums at its hand (higher as it flies), and the
-  titan's engine barely ticks over until it lunges, then revs.
+  tune, darkly filtered: nothing that beats or buzzes): a ball in flight
+  hums faintly so you can hear where it is, and the titan's engine
+  barely ticks over until it lunges, then revs.
 - **SOUND** on the wrist panel mutes it all; the choice is remembered.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it
@@ -281,6 +287,125 @@ too.
   dodgeable three times running, and whether the shut point reads as
   shut from the pad.
 
+### 3.7 VULTURE, as built
+
+The executioner fights from range first.
+
+- **The volley** (FF2's one real projectile, now aimed at you): the wings
+  flare wide and forward over a 1.3 s windup, their tips swelling with
+  light under a quickening pulse; then three venom bolts leave the
+  wingtips, alternating, 0.4 s apart, each at where your head is as it
+  leaves, at 4.2 m/s. Each bolt is judged like a fist, swept frame to
+  frame: a palm facing into its travel or an orbiting ball stops it (no
+  stagger: it's a bolt, not the titan's arm); your head takes 10%. A
+  volley on a titan with no wings throws from its shoulders.
+- Its one eye fires the **beam** (weighted 3, the most so far), and its
+  talons **sweep**, **hook** and **jab**. Gaps 0.6–1.1 s.
+- **Weak points open for two hits** (FF2's `'double'`), the core first.
+  16 hits.
+- **Open, to tune on a headset:** the bolt speed and size, whether the
+  flared wings fit a room, and whether a palm block on a bolt from the
+  side feels fair.
+
+### 3.8 Hits that land
+
+`fx/impact.ts`: a pooled bloom (a glow that swells and fades round a
+white-hot heart) and one or two shockwave rings that race out facing
+you, drawn over the titan's glass so its own plates can't hide them, and
+faded by alpha (pillar 4).
+
+- **Weak point:** a big bloom and two rings in its accent, a 0.08 s
+  hit-stop (the titan's clock nearly stops; yours doesn't), every lit
+  edge on it flaring white, and a white trail on its health bar that
+  holds a moment and then catches up. The killing blow: a bigger bloom
+  at the core and three times the hit-stop.
+- **Armour:** a small bloom and one ring in its line colour.
+- **Blocks:** a white-hot bloom and two rings at your palm.
+- **You're hit:** a red ring a little way out along the blow (not in
+  your eyes), with the red flash round your head as before.
+
+### 3.9 JUGGERNAUT, as built
+
+The rolling fortress: artillery that can also grab you. Three answers,
+three different moves: step for the mortar, duck for the sweep, block or
+back off from the clap.
+
+- **The mortar** (FF2's volley from the shoulder pods, lobbed): four
+  shells, 0.45 s apart, from alternating pods, each launched (`lob` in
+  `strike.ts`) to come down on where your head is as it leaves, 1.05 s
+  later, under a gentle 2.8 m/s² (the arc tops out under 2.4 m, checked).
+  Judged like a bolt; a palm facing into its fall stops it. One that
+  misses bursts on your floor. 12% each.
+- **The clap** (`limb: 'both'`): both arms thrown wide and level over a
+  1.25 s windup, the windup's whine from both sides at once; then each
+  fist arcs in from its own side to meet on your snapped head. Judged
+  per fist; a block on either stops both and staggers it. Lands once,
+  25%.
+- **The sweeping beam:** the eye tracks you and locks as usual, but it
+  locks your head's *height*. A faint level line shows its path across
+  the pad; then it scythes from one side to the other (1.1 m either way)
+  over 0.9 s. Stepping doesn't help: duck under it, or catch it on a palm
+  (parried: it stops there, and the titan staggers). 20%.
+- Also the overhand (30%) and the jab. Weighted mortar 4, clap 3, sweep 3,
+  overhand 2, jab 2; gaps 0.7–1.3 s.
+- **Weak points walk visor → core → low** (FF2's `'triple'`), one hit
+  each: the low blow is the lamp on its belt. 18 hits.
+
+### 3.10 GOLIATH, as built
+
+The king, the last titan: he has learned it all, and teaches.
+
+- **The decree** (`titans/decree.ts`, FF2's nova as a strike): over a
+  1.8 s windup a row of bolts gathers over his crown, one at a time, one
+  per lane across your pad (8 lanes, 0.22 m apart), with two neighbouring
+  lanes left dark and a lime ring on your floor in the gap. Then they all
+  fire at once, level with your head. The gap is planned when the windup
+  starts, never within 0.35 m of where you stand, never the outermost
+  pair, and leaves a 32 cm band a head fits through (all checked). Duck,
+  stand in the gap, or block your lane's bolt. It can only hit you once,
+  25%.
+- Everything else he's learned: the clap, the piston, the overhand, a
+  four-bolt volley from his pods, the sweeping beam and the beam. Weighted
+  decree 2 and the rest 2 (the beam 1); gaps 0.6–1.1 s.
+- **The crown** (FF2's): visor → left shoulder → core → right shoulder →
+  low, one hit each, three times round: 15 hits. The shoulder lamps are
+  bigger on the king, so they read as targets.
+- **Enrage at half health** (`TitanFight.enrage`): he stops to roar, every
+  lit edge burns 70% brighter and his weak points blink faster; then gaps
+  of 0.4–0.85 s and decree 4, piston 3, clap 3, volley 3. The windups are
+  untouched: escalation closes the gaps, never the tells.
+- **The chain of office** (`rig.chain`): every link is DRAWN (its outline
+  rides the geometry as `loops`, and the neon finish lays one lit oval per
+  link instead of creasing a solid torus, whose every facet lit up and
+  melted 19 links into one white-hot rope, ~17.5 k edge triangles of it).
+  Flat ovals alternate with links turned edge-on, as a chain is drawn.
+  It hangs from the line between its anchors, a damped pendulum
+  (`swingChain`): it lags a lunge and swings out as he pulls up, jumps on
+  a hit, a block or the enrage roar, and only ever swings out, resting
+  against his chest.
+- **Open, to tune on a headset:** whether the decree's row reads as
+  lanes from the pad (it's 1.7 m away; the lime ring is the backup), and
+  whether the enraged pace is fair.
+
+### 3.11 Your health
+
+FF2's arcade HUD shows YOUR health as one small bar low in front of you;
+Flux does the same, in neon (`systems/VitalsSystem.ts`).
+
+- **Where:** at the pad's front edge (z −0.85), 0.72 m below your eyes
+  (clamped 0.65–1.1 m, so sitting works), tilted up at you: about 40°
+  down, a glance. Every titan's low weak point sits near 25° down, so the
+  bar never covers one. Placed as the titan prints in, and again on a
+  recentre.
+- **What:** YOU, then 18 skewed segments on smoked glass, cyan like your
+  platform. A hit leaves a white trail of what you lost (it holds 0.5 s,
+  then drains) and flashes the frame red; under 30% the whole bar goes red
+  and pulses, faster as you near the floor. It rises with the titan and
+  sinks as the fight ends.
+- **With:** the platform rim still reddens as you go (§3.5), so your
+  health reads at your feet and at a glance down, never as a number in
+  your face.
+
 ---
 
 ## 4 · 1v1 — the second mode
@@ -354,8 +479,9 @@ laid out on your floor.
 ## 8 · Build order
 
 Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
-RUSTHOOK's fight with the palm block (§3.5). Step 4 has begun:
-PISTONKAISER fights (§3.6). See the README.
+RUSTHOOK's fight with the palm block (§3.5). Step 4 is built: all five
+titans fight (§3.6, §3.7, §3.9, §3.10). Next is tuning them on a headset,
+then 1V1. See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

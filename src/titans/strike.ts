@@ -17,19 +17,33 @@
 
 import { Vector3 } from 'three';
 
-export type StrikePath = 'jab' | 'hook' | 'overhand' | 'sweep' | 'piston' | 'beam';
+export type StrikePath =
+  | 'jab'
+  | 'hook'
+  | 'overhand'
+  | 'sweep'
+  | 'piston'
+  | 'clap'
+  | 'beam'
+  | 'sweepbeam'
+  | 'volley'
+  | 'mortar'
+  | 'decree';
 
 export interface StrikeDef {
   path: StrikePath;
-  /** Which arm (0 or 1), or 'eye' for the beam. */
-  limb: 0 | 1 | 'eye';
+  /** Which arm (0 or 1), 'both' (a clap), 'eye' for a beam, or 'bolts' for
+   *  things it throws: a volley from the wingtips (or launcher pods), a
+   *  mortar lobbed from the pods, a decree from over its crown. */
+  limb: 0 | 1 | 'both' | 'eye' | 'bolts';
   windup: number;
   strike: number;
   recover: number;
   damage: number;
   /** Blows in a chain (default 1). Each one after the first comes from the
    *  OTHER arm, wound up for `beat` seconds, aimed at where your head is by
-   *  then: keep moving on the beat. A block breaks the chain. */
+   *  then: keep moving on the beat. A block breaks the chain. On a volley
+   *  it's the bolts thrown, `beat` seconds apart. */
   combo?: number;
   beat?: number;
 }
@@ -51,10 +65,32 @@ export function windupOffset(path: StrikePath, side: number, out: Vector3): Vect
       return out.set(side * 0.75, -0.25, -0.1); // out wide, low, the arm laid open
     case 'piston':
       return out.set(side * 0.05, -0.38, 0.25); // drawn right back to the hip, a ram cocked
+    case 'clap':
+      return out.set(side * 0.65, 0.05, 0.1); // both arms thrown wide open, level
     case 'beam':
+    case 'sweepbeam':
+    case 'volley':
+    case 'mortar':
+    case 'decree':
       return out.set(0, 0, 0);
   }
 }
+
+/** The arms a move swings. */
+export function armsOf(d: StrikeDef): (0 | 1)[] {
+  return d.limb === 'both' ? [0, 1] : d.limb === 0 || d.limb === 1 ? [d.limb] : [];
+}
+
+/**
+ * A lobbed shot: the launch velocity (out) that carries a shell from `from`
+ * to `to` in `time` seconds under gravity `g` (m/s², pulling −y).
+ */
+export function lob(from: Vector3, to: Vector3, time: number, g: number, out: Vector3): Vector3 {
+  return out.copy(to).sub(from).divideScalar(time).setY((to.y - from.y) / time + 0.5 * g * time);
+}
+
+/** Does this move swing an arm (and so lunge, whoosh and whiff)? */
+export const isFist = (d: StrikeDef): boolean => armsOf(d).length > 0;
 
 /**
  * The fist's path from `from` (the windup point) through `to` (your head,
@@ -80,6 +116,9 @@ export function strikePoint(
     case 'hook':
       c.addScaledVector(outward, 0.55); // arcs in from the side
       break;
+    case 'clap':
+      c.addScaledVector(outward, 0.4); // each arm sweeps in from its side, to meet on you
+      break;
     case 'overhand':
       c.y += 0.6; // comes down on you from above
       break;
@@ -92,6 +131,10 @@ export function strikePoint(
       break;
     }
     case 'beam':
+    case 'sweepbeam':
+    case 'volley':
+    case 'mortar':
+    case 'decree':
       return out.copy(to);
   }
   // Quadratic Bézier from → c → end.

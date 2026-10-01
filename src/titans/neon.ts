@@ -181,6 +181,35 @@ export function neonFinish(rig: TitanRig, look: TitanLook): NeonStats {
     mesh.material = body;
     mat.dispose();
 
+    // Drawn outlines (a chain's links): each one a lit oval in its own
+    // plane, instead of the crease at every facet of a solid torus.
+    const loops = geo.userData.loops as Array<{ x: number; y: number; z: number; rx: number; ry: number; rot: number }> | undefined;
+    if (loops) {
+      mesh.updateMatrix();
+      const b = bucketFor(mesh.parent!, gold);
+      const N = 14;
+      for (const l of loops) {
+        const c = Math.cos(l.rot);
+        const sn = Math.sin(l.rot);
+        const at = (i: number, out: Vector3): Vector3 => {
+          const a = (i / N) * Math.PI * 2;
+          const px = Math.cos(a) * l.rx;
+          const py = Math.sin(a) * l.ry;
+          return out.set(l.x + px * c - py * sn, l.y + px * sn + py * c, l.z).applyMatrix4(mesh.matrix);
+        };
+        for (let i = 0; i < N; i++) {
+          at(i, _a);
+          at(i + 1, _b);
+          b.segs.push(_a.x, _a.y, _a.z, _b.x, _b.y, _b.z);
+          stats.edges++;
+        }
+      }
+      // Drawn in light alone: the solid links' dark glass would hide the
+      // outlines of the ones turned edge-on.
+      mesh.visible = false;
+      continue;
+    }
+
     // The lit edges, unless the part is too small to carry them.
     let part = geo.userData.partSize as number | undefined;
     if (part === undefined) {

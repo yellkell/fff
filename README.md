@@ -81,9 +81,58 @@ rebuilt for the headsets that ship without controllers. **Read
     first), and every hit you land on it opens the other. A ball on the
     shut one just sparks off. Fourteen hits fell it.
 
+- **VULTURE fights** (DESIGN §3.7), next after PISTONKAISER:
+  - its signature is the **volley**: its wings flare wide and three venom
+    bolts leave the wingtips a beat apart, each at where your head is as
+    it leaves. Dodge them, or catch them on a palm or an orbiting ball;
+  - its one eye fires the beam more than any titan before it, and its
+    talons hook, scythe and jab;
+  - its weak points stay open for **two** hits before they swap. Sixteen
+    hits fell it.
+
+- **JUGGERNAUT fights** (DESIGN §3.9), the rolling fortress, artillery
+  that can also grab you:
+  - the **mortar**: four shells lobbed from its shoulder pods, each coming
+    down on where you stood as it left. Keep stepping;
+  - the **clap**: both arms thrown wide, then swung in to meet on your
+    head. Duck, step back, or block either fist;
+  - the **sweeping beam**: its eye locks your head's *height*, then
+    scythes level across the whole pad. Duck under it, or palm it;
+  - and a heavy overhand and a jab. Its weak points walk **visor → core →
+    the low blow** on its belt, one hit each. Eighteen hits.
+
+- **GOLIATH fights** (DESIGN §3.10), the king, the last titan. He has
+  learned it all (clap, piston, overhand, a volley from his pods, both
+  beams) and has his own:
+  - the **decree**: a row of bolts gathers over his crown, one per lane
+    across your pad, with a gap two lanes wide and a lime ring on your
+    floor marking it. Then they all fire at once. Stand in the gap, duck,
+    or block your lane's bolt. The gap is never where you're standing;
+  - his weak points walk the **crown**: visor, left shoulder, core, right
+    shoulder, low, three times round (fifteen hits);
+  - at half health he **enrages**: a roar, a hotter burn, shorter gaps
+    and more decrees. His tells never get shorter;
+  - his **chain of office** is drawn link by link in gold line (flat ovals
+    and edge-on links, like a chain in a drawing) and hangs free: it lags
+    behind his lunges, swings out as he pulls up, and jumps when he's hit
+    or roars.
+
+- **Your health** (`src/systems/VitalsSystem.ts`, FF2's arcade HUD in
+  neon): a small segmented bar, YOU, low at the front of your pad and
+  tilted up at you, so a glance down reads it (and it sits well below
+  every titan's weak points). A hit leaves a white trail of what you lost
+  and flashes its frame red; under 30% it all goes red and pulses. It rises
+  with the titan and sinks when the fight's over.
+
+- **Hits that land** (`src/fx/impact.ts`). Every hit flashes and throws a
+  shockwave ring that faces you; a weak-point hit also freezes the titan
+  for a beat, flares every lit edge on it white, and leaves a white trail
+  on its health bar showing what you just took off. The killing blow goes
+  up in light.
+
 - **Sound** (`src/audio/sfx.ts`, DESIGN §2.2). Every sound synthesised
-  live, no files: fireballs that hum softly in your hands and whoomp
-  away, menus that tick and click, and a titan you can *hear* coming, its
+  live, no files: fireballs that catch, whoomp away and come home with
+  soft, low sounds (silent while you hold them), menus that tick and click, and a titan you can *hear* coming, its
   windup ticking faster and higher from the fist that's about to swing,
   the beam's chord climbing from its eye, a heartbeat when you're nearly
   done. Positioned sounds come from
@@ -101,7 +150,7 @@ rebuilt for the headsets that ship without controllers. **Read
   faded to black but still drawn was a black dot hanging in the room.
   Sparks and the platform's glow now fade their alpha with their light.
 
-Next up: tune RUSTHOOK and PISTONKAISER on a headset, then VULTURE.
+All five titans fight. Next up: tune the gauntlet on a headset, then 1V1.
 
 ## Run it
 
@@ -125,7 +174,10 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # loop, and fights RUSTHOOK (hit, dodge, palm block,
                      # beam, a ball on its core, the win and the results),
                      # then PISTONKAISER from NEXT TITAN (the piston chain,
-                     # weak points taking turns) with the emulator's hands
+                     # weak points taking turns), VULTURE (the volley),
+                     # JUGGERNAUT (mortar, clap, ducking the sweeping beam)
+                     # and GOLIATH (the decree's gap, the enrage) with the
+                     # emulator's hands (-- --shots DIR: a picture of each)
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 npm run check:sounds # needs `npm run dev`: every sound renders, audible and

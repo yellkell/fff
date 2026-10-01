@@ -10,7 +10,11 @@
  * home. Then TITANS: RUSTHOOK prints in; a jab lands on a still head,
  * misses one that steps aside after the windup, and bounces off an open
  * palm; the eye beam lands; a thrown ball hits it; and felling it brings
- * the console back on its results face. Last, from off-centre, RECENTRE
+ * the console back on its results face. NEXT TITAN then walks the whole
+ * gauntlet: PISTONKAISER's piston chain and turn-taking weak points,
+ * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
+ * under, then taken standing), and GOLIATH's decree (dodged in its gap,
+ * then taken in a lane) and his enrage. Last, from off-centre, RECENTRE
  * puts the pad back under you. Throughout, the sound: it starts with the
  * Enter press, every moment above fires its sound, and SOUND on the wrist
  * panel mutes it and brings it back; and the music follows along (Overtime
@@ -21,7 +25,7 @@
  * hands only know open and pinch.)
  *
  *   npm run dev              # terminal 1
- *   npm run check:smoke [-- --shots]
+ *   npm run check:smoke [-- --shots DIR]   # --shots: a picture of each new attack, into DIR
  */
 
 import { chromium } from 'playwright';
@@ -44,6 +48,12 @@ async function launch() {
 
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
+// --shots DIR: a picture of each new attack as it happens.
+const shotsAt = process.argv.indexOf('--shots');
+const shotDir = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
+const shot = async (name) => {
+  if (shotDir) writeFileSync(`${shotDir}/${name}.png`, await page.screenshot());
+};
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => {
@@ -327,6 +337,11 @@ if (offered) {
   await debug({ force: 'jab' });
   t = await until((x) => x.act === null && x.hitsTaken > 0, 10000);
   check('a jab lands on a head that stays put', t.hitsTaken === 1 && t.playerHp < 1, `your health ${t.playerHp.toFixed(2)}`);
+  {
+    const v = await page.evaluate(() => window.__flux.vitals());
+    check('your health bar shows it, with a trail of what you lost', v.visible && Math.abs(v.hp - t.playerHp) < 1e-6 && v.trail > v.hp, `bar ${v.hp.toFixed(2)}, trail ${v.trail.toFixed(2)}`);
+    if (shotDir) await shot('your-health');
+  }
 
   await debug({ force: 'jab' });
   await until((x) => x.act?.stage === 'strike');
@@ -455,13 +470,133 @@ if (offered) {
   s = await S();
   t = await T();
   check('PISTONKAISER falls to the results face', s.mode === 'home' && t.result?.titan === 'PISTONKAISER' && t.result?.won === true, JSON.stringify(t.result));
-  check('and NEXT TITAN locks again: VULTURE is still being built', s.buttons.next.locked);
+
+  // ── VULTURE, from NEXT TITAN again ──
+  check('NEXT TITAN is open again for VULTURE', !s.buttons.next.locked);
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('NEXT TITAN prints VULTURE in', t.name === 'VULTURE' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  {
+    const before = t.hitsTaken;
+    await debug({ force: 'volley' });
+    if (shotDir) await until((x) => x.bolts >= 2, 10000), await shot('vulture-volley');
+    t = await until((x) => x.bolts >= 3 && x.act === null, 10000);
+    await settle(900); // the last bolt's flight
+    t = await T();
+    check('the VOLLEY throws three bolts from its wingtips, all landing on a head that stays put', t.bolts === 3 && t.hitsTaken - before === 3, `bolts ${t.bolts}, hits ${t.hitsTaken - before}`);
+  }
+  {
+    // 'double': a hit on the open core leaves it open; the second shuts it.
+    let hit = null;
+    for (let i = 0; i < 3 && !hit; i++) {
+      const pre = await T();
+      await place('hand-right', AIM);
+      await settle(900);
+      await pinch(1);
+      await settle(300);
+      await swing(true, AIM);
+      t = await until((x) => x.hitsLanded + x.armourHits > pre.hitsLanded + pre.armourHits, 3000);
+      if (t.hitsLanded > pre.hitsLanded) hit = t;
+    }
+    check('its weak point stays open for a second hit', hit?.open === 'core', hit ? `${hit.hitsLanded} weak · open ${hit.open}` : 'no weak hit in 3 throws');
+  }
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('VULTURE falls to the results face', s.mode === 'home' && t.result?.titan === 'VULTURE' && t.result?.won === true, JSON.stringify(t.result));
+
+  // ── JUGGERNAUT ──
+  check('NEXT TITAN is open again for JUGGERNAUT', !s.buttons.next.locked);
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('NEXT TITAN prints JUGGERNAUT in', t.name === 'JUGGERNAUT' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('its weak points walk visor, core, low: the visor first', t.open === 'head', t.open);
+  {
+    let before = t.hitsTaken;
+    await debug({ force: 'mortar' });
+    if (shotDir) await until((x) => x.bolts >= 2, 10000), await shot('juggernaut-mortar');
+    t = await until((x) => x.bolts >= 4 && x.act === null, 10000);
+    await settle(1300); // the last shell's flight
+    t = await T();
+    check('the MORTAR lobs four shells onto a head that stays put', t.bolts === 4 && t.hitsTaken - before === 4, `shells ${t.bolts}, hits ${t.hitsTaken - before}`);
+    before = t.hitsTaken;
+    await debug({ force: 'clap' });
+    if (shotDir) await until((x) => x.act?.stage === 'windup' && false, 900), await shot('juggernaut-clap-windup');
+    t = await until((x) => x.act === null && x.hitsTaken > before, 10000);
+    await until((x) => x.act === null);
+    t = await T();
+    check('the CLAP brings both fists in, and lands once', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    // The sweeping beam locks your height: duck once it's locked and it
+    // scythes over you.
+    before = t.hitsTaken;
+    await debug({ force: 'sweepbeam' });
+    await until((x) => x.act?.stage === 'strike', 10000);
+    await place('headset', { x: 0, y: 1.15, z: 0 });
+    await shot('juggernaut-sweepbeam-ducked');
+    t = await until((x) => x.act === null || x.act.stage === 'recover', 5000);
+    check('ducking under the SWEEPING BEAM makes it miss', t.hitsTaken === before, `hits ${t.hitsTaken - before}`);
+    await place('headset', { x: 0, y: 1.6, z: 0 });
+    await until((x) => x.act === null);
+    await debug({ force: 'sweepbeam' });
+    t = await until((x) => x.act === null && x.hitsTaken > before, 10000);
+    check('standing tall, it scythes through you', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await until((x) => x.act === null);
+  }
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('JUGGERNAUT falls to the results face', s.mode === 'home' && t.result?.titan === 'JUGGERNAUT' && t.result?.won === true, JSON.stringify(t.result));
+
+  // ── GOLIATH ──
+  check('NEXT TITAN is open for GOLIATH', !s.buttons.next.locked);
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('NEXT TITAN prints GOLIATH in', t.name === 'GOLIATH' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('his weak points walk the crown: the visor first', t.open === 'head', t.open);
+  {
+    let before = t.hitsTaken;
+    await debug({ force: 'decree' });
+    t = await until((x) => x.decreeGap !== null, 5000);
+    const gap = t.decreeGap;
+    check('the DECREE leaves its gap away from where you stand', gap !== null && Math.abs(gap) >= 0.35, `gap at x ${gap?.toFixed(2)}`);
+    await place('headset', { x: gap, y: 1.6, z: 0 });
+    if (shotDir) await until((x) => false, 1000), await shot('goliath-decree');
+    t = await until((x) => x.act === null, 10000);
+    await settle(700);
+    t = await T();
+    check('standing in the gap, every bolt misses', t.hitsTaken === before && t.bolts === 6, `hits ${t.hitsTaken - before}, bolts ${t.bolts}`);
+    await place('headset', { x: 0, y: 1.6, z: 0 });
+    await settle(200);
+    before = t.hitsTaken;
+    await debug({ force: 'decree' });
+    t = await until((x) => x.act === null, 10000);
+    await settle(700);
+    t = await T();
+    check('standing in a lane, it lands, once', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+  }
+  await debug({ setHp: 0.45 });
+  t = await until((x) => x.enraged, 3000);
+  check('at half health he ENRAGES', t.enraged);
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('GOLIATH falls to the results face', s.mode === 'home' && t.result?.titan === 'GOLIATH' && t.result?.won === true, JSON.stringify(t.result));
+  check('and NEXT TITAN locks: he was the last', s.buttons.next.locked);
   await poke('home');
   s = await S();
   check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);
   {
     const log = (await SND()).log;
-    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'weakHit', 'titanFall', 'win'];
+    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'volleyCharge', 'boltFire', 'mortarFire', 'decreeCharge', 'decreeOrb', 'decreeFire', 'enrage', 'weakHit', 'titanFall', 'win'];
     const missing = need.filter((n) => !log[n]);
     check('the fight makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : `${need.length} sounds`);
   }

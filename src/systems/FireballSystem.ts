@@ -193,7 +193,10 @@ export class FireballSystem extends createSystem({}) {
             if (shape.tracked && _v.length() >= FIREBALL.minPunchSpeed) this.throwBall(b, _v);
             else {
               b.state = State.Hover;
-              sfx('drop', b.pos);
+              // Losing the hand to the cameras isn't something you did:
+              // the ball just dims, silently. (It used to zap every time,
+              // and mid-fight hands leave the cameras all the time.)
+              if (shape.tracked) sfx('drop', b.pos);
             }
             break;
           }
@@ -252,9 +255,10 @@ export class FireballSystem extends createSystem({}) {
       const lit = b.state !== State.Hover;
       b.group.scale.setScalar(lit ? 1 : 0.55);
       b.core.visible = lit;
-      // Its hum: quiet while it orbits, singing higher as it flies.
-      const orbit = b.state === State.Orbit;
-      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible ? (away ? 0.05 : orbit ? 0.015 + 0.015 * b.spin : 0) : 0, away ? 1.5 : 1 + 0.25 * b.spin);
+      // Its hum: only while it flies, faintly, so you can hear where it is.
+      // In your hand it's silent: a ball held all fight long next to your
+      // ears was a drone you couldn't get away from.
+      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible && away ? 0.025 : 0, 1.5);
       if (away) {
         b.trail -= delta;
         if (b.trail <= 0) {
