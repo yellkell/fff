@@ -111,7 +111,18 @@ rebuilt for the headsets that ship without controllers. **Read
   - his weak points walk the **crown**: visor, left shoulder, core, right
     shoulder, low, three times round (fifteen hits);
   - at half health he **enrages**: a roar, a hotter burn, shorter gaps
-    and more decrees. His tells never get shorter.
+    and more decrees. His tells never get shorter;
+  - his **chain of office** is drawn link by link in gold line (flat ovals
+    and edge-on links, like a chain in a drawing) and hangs free: it lags
+    behind his lunges, swings out as he pulls up, and jumps when he's hit
+    or roars.
+
+- **Your health** (`src/systems/VitalsSystem.ts`, FF2's arcade HUD in
+  neon): a small segmented bar, YOU, low at the front of your pad and
+  tilted up at you, so a glance down reads it (and it sits well below
+  every titan's weak points). A hit leaves a white trail of what you lost
+  and flashes its frame red; under 30% it all goes red and pulses. It rises
+  with the titan and sinks when the fight's over.
 
 - **Hits that land** (`src/fx/impact.ts`). Every hit flashes and throws a
   shockwave ring that faces you; a weak-point hit also freezes the titan

@@ -337,6 +337,11 @@ if (offered) {
   await debug({ force: 'jab' });
   t = await until((x) => x.act === null && x.hitsTaken > 0, 10000);
   check('a jab lands on a head that stays put', t.hitsTaken === 1 && t.playerHp < 1, `your health ${t.playerHp.toFixed(2)}`);
+  {
+    const v = await page.evaluate(() => window.__flux.vitals());
+    check('your health bar shows it, with a trail of what you lost', v.visible && Math.abs(v.hp - t.playerHp) < 1e-6 && v.trail > v.hp, `bar ${v.hp.toFixed(2)}, trail ${v.trail.toFixed(2)}`);
+    if (shotDir) await shot('your-health');
+  }
 
   await debug({ force: 'jab' });
   await until((x) => x.act?.stage === 'strike');

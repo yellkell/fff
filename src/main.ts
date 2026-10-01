@@ -22,6 +22,7 @@ import { HandSystem } from './systems/HandSystem.js';
 import { PokeSystem } from './systems/PokeSystem.js';
 import { TargetSystem } from './systems/TargetSystem.js';
 import { titanDebug, titanStats, TitanSystem } from './systems/TitanSystem.js';
+import { vitalsStats, VitalsSystem } from './systems/VitalsSystem.js';
 import { WristSystem } from './systems/WristSystem.js';
 import { buttonPose, buttons } from './ui/poke.js';
 
@@ -66,6 +67,7 @@ World.create(container, {
     .registerSystem(PokeSystem)
     .registerSystem(TargetSystem)
     .registerSystem(TitanSystem)
+    .registerSystem(VitalsSystem)
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
     .registerSystem(FxSystem)
@@ -84,6 +86,7 @@ World.create(container, {
     mode: () => game.mode,
     titan: () => ({ ...titanStats, playerHp: game.playerHp, result: game.result }),
     titanDebug,
+    vitals: () => ({ ...vitalsStats }),
     sound: () => ({ state: audioState(), muted: isMuted(), gain: masterGain(), log: { ...sfxLog } }),
     music: musicState,
     wristOpen: () => game.wristOpen,

@@ -86,6 +86,9 @@ export interface TitanRig {
   /** VULTURE's wings (empty on every other chassis): shoulder group + wrist
    *  kink per side, so the entrance can spread them and settle to mantled. */
   wings: { group: Group; wrist: Group; side: number }[];
+  /** GOLIATH's chain of office, hung from the line between its two
+   *  anchors so it can swing forward and back (rotate x); null elsewhere. */
+  chain: Group | null;
   /** Shoulder emblems [left, right] — GOLIATH's crown circuit stops. */
   shoulders: [Mesh, Mesh];
   /** Their glows — blink while that shoulder is the live weak point. */
@@ -618,21 +621,39 @@ export function buildTitan(def: TitanLook): TitanRig {
     needle.rotation.z = -0.7; // pinned hard right
     chest.add(needle);
   }
+  let chain: Group | null = null;
   if (def.style === 'king') {
     // THE CHAIN OF OFFICE: heavy gold links slung shoulder to shoulder,
-    // sagging across the chest above the core — worn, not bolted.
-    // (Every link lies in the chest's plane, each overlapping the next: a
-    // real chain's alternate links turn edge-on, and from the front that
-    // read as a row of bars.)
+    // sagging across the chest above the core — worn, not bolted. It hangs
+    // from the line between its anchors (the group's x axis), so it can
+    // swing out and back as the king moves.
+    //
+    // In neon, every link is DRAWN, not creased: a solid torus has a crease
+    // at every facet, and nineteen of them melted into one white-hot rope.
+    // So each link carries its outline (`loops`) for the neon finish, and
+    // like a chain drawn in a line, they alternate: a flat oval facing you,
+    // then one turned edge-on (a thin sliver), then flat again.
+    chain = new Group();
+    chain.position.set(0, 0.11 * s, -0.272 * s);
+    chest.add(chain);
     const links: Array<[number, number, number, number, number, number]> = [];
-    const n = 19;
+    const loops: Array<{ x: number; y: number; z: number; rx: number; ry: number; rot: number }> = [];
+    const n = 17;
     for (let k = 0; k < n; k++) {
       const t = k / (n - 1);
       const x = (-0.3 + t * 0.6) * s;
-      const y = (0.11 - Math.sin(t * Math.PI) * 0.09) * s;
-      links.push([x, y, (-0.272 - (k % 2) * 0.006) * s, 0, 0, 0]);
+      const y = -Math.sin(t * Math.PI) * 0.09 * s;
+      // The chain's own slope here, so each link lies along the sag.
+      const slope = Math.atan2(-Math.cos(t * Math.PI) * 0.09 * Math.PI, 0.6);
+      const flat = k % 2 === 0;
+      const z = flat ? 0 : -0.006 * s;
+      links.push([x, y, z, flat ? 0 : Math.PI / 2, 0, slope]);
+      loops.push({ x, y, z, rx: 0.026 * s, ry: (flat ? 0.016 : 0.006) * s, rot: slope });
     }
-    chest.add(new Mesh(repeated(new TorusGeometry(0.02 * s, 0.0065 * s, 6, 14), links), steelMat(GOLD, GOLD, 0.3)));
+    // Oval links, longer than they're tall, like a real chain's.
+    const linkMesh = new Mesh(repeated(new TorusGeometry(0.02 * s, 0.0065 * s, 6, 14).scale(1, 0.6, 1), links), steelMat(GOLD, GOLD, 0.3));
+    linkMesh.geometry.userData.loops = loops;
+    chain.add(linkMesh);
     // A gold X braced behind the core — four arms on the true diagonals,
     // each running radially so the whole mark reads as one clean cross.
     for (const rot of [Math.PI / 4, (3 * Math.PI) / 4, -Math.PI / 4, (-3 * Math.PI) / 4]) {
@@ -1063,6 +1084,7 @@ export function buildTitan(def: TitanLook): TitanRig {
     low,
     lowMat,
     wings,
+    chain,
     shoulders,
     shoulderMats,
     podMats,

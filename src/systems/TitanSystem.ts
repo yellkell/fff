@@ -270,6 +270,12 @@ export class TitanSystem extends createSystem({}) {
   private tips: { wings: Emitter[]; pods: Emitter[] } = { wings: [], pods: [] };
   private flare = 0;
   private wingRest: { gy: number; gz: number; wz: number }[] = [];
+  /** GOLIATH's chain of office: how far it's swung out (radians), how
+   *  fast, and the lunge it's reacting to. */
+  private chainSwing = 0;
+  private chainVel = 0;
+  private lastLunge = 0;
+  private lungeVel = 0;
 
   /** Clipping for the print-in: everything below the plane's height shows. */
   private readonly clip = new Plane(new Vector3(0, -1, 0), 0);
@@ -655,6 +661,7 @@ export class TitanSystem extends createSystem({}) {
     sfx('titanGrunt', this.rig!.head.getWorldPosition(_w));
     this.stagger = FIGHT.stagger;
     this.flinch = 1;
+    this.chainVel += 4;
     a.lunge = 0;
     a.blocked = true;
     this.toRecover(a);
@@ -939,6 +946,7 @@ export class TitanSystem extends createSystem({}) {
     this.weak.hit();
     this.weakFlash = 1;
     this.flinch = Math.max(this.flinch, 0.7);
+    this.chainVel += 3;
     this.hitStop = FIGHT.hitStop;
     this.edgeFlash = 1;
     this.chipHold = 0.45;
@@ -973,6 +981,7 @@ export class TitanSystem extends createSystem({}) {
     this.weights = e.weights;
     this.gapRange = e.gap;
     this.stagger = Math.max(this.stagger, 1.2); // it stops to roar
+    this.chainVel += 6;
     this.edgeFlash = 1;
     this.hitStop = FIGHT.hitStop * 2;
     for (const m of this.edgeMats) if (m.mat.transparent) m.opacity *= 1.7;
@@ -1074,6 +1083,8 @@ export class TitanSystem extends createSystem({}) {
       if (on) e.glow.scale.setScalar((0.08 + 0.3 * charge) / this.k);
     }
 
+    this.swingChain(delta);
+
     // A weak-point hit flares every lit edge on it, white, for a moment.
     this.edgeFlash = Math.max(0, this.edgeFlash - delta * 5);
     for (const e of this.edgeMats) {
@@ -1096,6 +1107,33 @@ export class TitanSystem extends createSystem({}) {
     // Keep the hittables on it.
     for (const s of this.spots.values()) s.on?.getWorldPosition(s.pos);
     root.localToWorld(this.armour.pos.copy(this.chestLocal));
+  }
+
+  /**
+   * The chain of office swings like a real one: a damped pendulum hanging
+   * off its anchor line, flung out by the king's own moves. It lags behind
+   * a lunge and swings out as he pulls up, jumps when he's hit or roars,
+   * and can only swing OUT: behind it is his chest, which it rests against.
+   */
+  private swingChain(delta: number): void {
+    const chain = this.rig!.chain;
+    if (!chain || delta < 1e-3) return;
+    // The lunge's acceleration, toward you: pulling up flings it forward.
+    const v = (this.lunge - this.lastLunge) / delta;
+    const acc = Math.max(-25, Math.min(25, (v - this.lungeVel) / delta));
+    this.lastLunge = this.lunge;
+    this.lungeVel = v;
+    // Leaning back (a flinch, a stagger) leaves it hanging forward of him.
+    const lean = 0.18 * this.flinch + (this.stagger > 0 ? 0.08 : 0);
+    this.chainVel += (-30 * (this.chainSwing - lean) - 2.6 * this.chainVel - 0.9 * acc) * delta;
+    this.chainSwing += this.chainVel * delta;
+    if (this.chainSwing < 0) {
+      // It meets his chest and bounces off, softly.
+      this.chainSwing = 0;
+      this.chainVel = Math.abs(this.chainVel) * 0.3;
+    }
+    this.chainSwing = Math.min(1.1, this.chainSwing);
+    chain.rotation.x = this.chainSwing;
   }
 
   /** Where arm `i`'s fist should be this frame, world space. */
@@ -1254,6 +1292,7 @@ export class TitanSystem extends createSystem({}) {
     this.chipHold = 0;
     this.hitStop = 0;
     this.enraged = false;
+    this.chainSwing = this.chainVel = this.lastLunge = this.lungeVel = 0;
     this.weights = this.fight.weights;
     this.gapRange = this.fight.gap ?? [FIGHT.gapMin, FIGHT.gapMax];
 

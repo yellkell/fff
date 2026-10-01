@@ -374,9 +374,37 @@ The king, the last titan: he has learned it all, and teaches.
   lit edge burns 70% brighter and his weak points blink faster; then gaps
   of 0.4–0.85 s and decree 4, piston 3, clap 3, volley 3. The windups are
   untouched: escalation closes the gaps, never the tells.
+- **The chain of office** (`rig.chain`): every link is DRAWN (its outline
+  rides the geometry as `loops`, and the neon finish lays one lit oval per
+  link instead of creasing a solid torus, whose every facet lit up and
+  melted 19 links into one white-hot rope, ~17.5 k edge triangles of it).
+  Flat ovals alternate with links turned edge-on, as a chain is drawn.
+  It hangs from the line between its anchors, a damped pendulum
+  (`swingChain`): it lags a lunge and swings out as he pulls up, jumps on
+  a hit, a block or the enrage roar, and only ever swings out, resting
+  against his chest.
 - **Open, to tune on a headset:** whether the decree's row reads as
   lanes from the pad (it's 1.7 m away; the lime ring is the backup), and
   whether the enraged pace is fair.
+
+### 3.11 Your health
+
+FF2's arcade HUD shows YOUR health as one small bar low in front of you;
+Flux does the same, in neon (`systems/VitalsSystem.ts`).
+
+- **Where:** at the pad's front edge (z −0.85), 0.72 m below your eyes
+  (clamped 0.65–1.1 m, so sitting works), tilted up at you: about 40°
+  down, a glance. Every titan's low weak point sits near 25° down, so the
+  bar never covers one. Placed as the titan prints in, and again on a
+  recentre.
+- **What:** YOU, then 18 skewed segments on smoked glass, cyan like your
+  platform. A hit leaves a white trail of what you lost (it holds 0.5 s,
+  then drains) and flashes the frame red; under 30% the whole bar goes red
+  and pulses, faster as you near the floor. It rises with the titan and
+  sinks as the fight ends.
+- **With:** the platform rim still reddens as you go (§3.5), so your
+  health reads at your feet and at a glance down, never as a number in
+  your face.
 
 ---
 
