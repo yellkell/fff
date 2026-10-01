@@ -64,7 +64,10 @@ interface Ring {
 /**
  * A closed band around the platform, stitched ring to ring. Vary `d` for a
  * ribbon on the floor, vary `y` for a curb standing on it. The light is
- * additive, so a black ring is simply no light: that's how the glow fades.
+ * additive, but over passthrough a black ring is NOT simply no light: the
+ * frame's alpha is what hides the room, and additive blending still adds
+ * it. So each ring carries its brightness as alpha (colour × alpha = the
+ * light asked for), and the glow fades to clear, not to black.
  */
 function band(rings: Ring[]): Mesh {
   const n = PLATFORM_VERTICES.length;
@@ -73,7 +76,9 @@ function band(rings: Ring[]): Mesh {
   for (const r of rings) {
     for (const [x, z] of inset(r.d)) {
       pos.push(x, r.y, z);
-      col.push(r.c.r, r.c.g, r.c.b);
+      const a = Math.min(1, Math.max(r.c.r, r.c.g, r.c.b));
+      const k = a > 0 ? 1 / a : 0;
+      col.push(r.c.r * k, r.c.g * k, r.c.b * k, a);
     }
   }
   const idx: number[] = [];
@@ -88,7 +93,7 @@ function band(rings: Ring[]): Mesh {
   }
   const geo = new BufferGeometry();
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  geo.setAttribute('color', new Float32BufferAttribute(col, 4));
   geo.setIndex(idx);
   return new Mesh(
     geo,
@@ -113,7 +118,8 @@ const danger = {
   core: null as MeshBasicMaterial | null,
   halo: null as MeshBasicMaterial | null,
   /** The cyan rim's own materials: they dim as the red comes up, or the
-   *  red (added on top) would only ever read as a paler cyan. */
+   *  red (added on top) would only ever read as a paler cyan. They dim by
+   *  opacity, not colour: a darkened colour at full alpha is a dark rim. */
   cyan: [] as MeshBasicMaterial[],
 };
 
@@ -128,7 +134,7 @@ export function setPlatformDanger(k: number, time = 0): void {
   danger.core.opacity = o;
   danger.halo.opacity = o;
   danger.core.visible = danger.halo.visible = o > 0.01;
-  for (const m of danger.cyan) m.color.setScalar(Math.max(0.12, 1 - 1.6 * k));
+  for (const m of danger.cyan) m.opacity = Math.max(0.12, 1 - 1.6 * k);
 }
 
 export function buildPlatform(): Group {

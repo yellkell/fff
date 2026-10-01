@@ -350,6 +350,43 @@ function zap(from: number, to: number, dur: number, gain: number, delay = 0): vo
   osc.stop(t0 + dur + 0.03);
 }
 
+/** A crescendo: a soft oscillator swelling across the whole of `dur` and
+ *  cut at its top, through a gentle lowpass. The tells are built on it:
+ *  they grow toward the moment, without a siren's whine. */
+function rise(from: number, to: number, dur: number, gain: number, type: OscillatorType = 'triangle', lpHz = 1200, delay = 0): void {
+  if (!cur) return;
+  const { c, dest } = cur;
+  const t0 = c.currentTime + delay;
+  const osc = c.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(from, t0);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), t0 + dur);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = 0.7;
+  lp.frequency.value = lpHz;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + dur);
+  g.gain.linearRampToValueAtTime(0.0001, t0 + dur + 0.06);
+  osc.connect(lp).connect(g).connect(dest);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.1);
+}
+
+/** A ratchet: soft ticks that speed up and climb toward `dur`'s end, a
+ *  countdown you can hear the end of coming. */
+function ratchet(dur: number, gain: number, fromHz: number, toHz: number): void {
+  let t = 0;
+  let gap = Math.min(0.24, dur / 4);
+  while (t < dur - 0.02) {
+    const u = t / dur;
+    pluck(fromHz * (toHz / fromHz) ** u, gain * (0.45 + 0.55 * u), 0.05, t);
+    t += gap;
+    gap = Math.max(0.055, gap * 0.8);
+  }
+}
+
 /* ── the sounds ────────────────────────────────────────────────────────── */
 
 /** Every sound's body, by name: the game's calls, the sound board and the
@@ -443,17 +480,19 @@ export const SOUNDS = {
     clank(90, 0.1, 0.5, 0.03);
   },
   windup: (k = 1) => {
-    // The tell: a rising whine over building dread, `k` seconds long.
-    servo(140, 900, k, 0.13);
-    servo(137, 885, k, 0.08);
-    noise(k, 0.07, 200, 1300);
-    swell(36, 58, k, 0.16, 0, k * 0.7);
+    // The tell, `k` seconds long: a ratchet ticking faster and higher as
+    // the arm cocks, over a low swell, so the blow lands where the ticks
+    // run out. (It was a pair of detuned saw sirens: too whiny to hear
+    // every two seconds.)
+    ratchet(k, 0.11, 330, 880);
+    rise(55, 98, k, 0.2, 'sine', 400);
   },
   beamCharge: (k = 1) => {
-    // Rising the whole windup, so the lock and the fire land on its top.
-    zap(180, 1400, k, 0.22);
-    zap(183, 1420, k, 0.15);
-    noise(k, 0.2, 600, 3200, 0, 3);
+    // Rising the whole windup, so the lock and the fire land on its top:
+    // a soft chord climbing, not a screech.
+    rise(220, 660, k, 0.12, 'triangle', 1400);
+    rise(330, 990, k, 0.05, 'sine', 1800);
+    rise(110, 220, k, 0.1, 'sine', 500);
   },
   beamLock: () => {
     pluck(1976, 0.09, 0.08);
@@ -554,13 +593,15 @@ function makeHum(c: AudioContext, kind: HumKind): HumVoice {
   const filter = c.createBiquadFilter();
   filter.type = 'lowpass';
   const oscs: OscillatorNode[] = [];
-  // A ball: two detuned triangles, a live neon tube's hum. The engine: a
-  // low saw pair through a dark filter, a machine idling.
-  const base = kind === 'ball' ? 196 : 41;
-  const shape: OscillatorType = kind === 'ball' ? 'triangle' : 'sawtooth';
-  filter.frequency.value = kind === 'ball' ? 1400 : 180;
-  filter.Q.value = kind === 'ball' ? 2 : 4;
-  const mults = kind === 'ball' ? [1, 1.503] : [1, 1.498, 0.5];
+  // A ball: a soft triangle and its fifth, a live neon tube's hum. The
+  // engine: a low triangle and its octave, a machine ticking over. Both
+  // purely tuned and darkly filtered: they run all fight long, so nothing
+  // in them may beat, buzz or whine (saws and detuned pairs did).
+  const base = kind === 'ball' ? 196 : 55;
+  const shape: OscillatorType = 'triangle';
+  filter.frequency.value = kind === 'ball' ? 900 : 260;
+  filter.Q.value = 0.7;
+  const mults = kind === 'ball' ? [1, 1.5] : [1, 2];
   for (const mult of mults) {
     const o = c.createOscillator();
     o.type = shape;

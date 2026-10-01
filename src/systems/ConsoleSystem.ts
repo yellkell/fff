@@ -12,7 +12,8 @@
  *
  * After a fight it comes back up on its RESULTS face: who won and how
  * fast, then REMATCH, NEXT TITAN (locked until the next one is built) and
- * HOME, same three places as the cards you just used.
+ * HOME, same three places as the cards you just used. NEXT TITAN moves the
+ * TITANS card on too, so HOME then TITANS fights the one you got to.
  */
 
 import { createSystem } from '@iwsdk/core';
@@ -20,6 +21,8 @@ import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeom
 import { sfx } from '../audio/sfx.js';
 import { CONSOLE, NEON } from '../config.js';
 import { type FightResult, game, setMode } from '../game/state.js';
+import { playable } from '../titans/fights.js';
+import { TITANS } from '../titans/roster.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { addButton, PokeButton } from '../ui/poke.js';
 
@@ -35,6 +38,8 @@ export class ConsoleSystem extends createSystem({}) {
   private status!: TextPlane;
   private title!: TextPlane;
   private readonly cards: PokeButton[] = [];
+  private titansCard!: PokeButton;
+  private nextCard!: PokeButton;
   private readonly homeFace = new Group();
   private readonly resultFace = new Group();
   private shownResult: FightResult | null | undefined = undefined;
@@ -64,7 +69,7 @@ export class ConsoleSystem extends createSystem({}) {
     const cardH = 0.17;
     const gap = 0.02;
     const defs = [
-      { id: 'titans', label: 'TITANS', sub: 'RUSTHOOK', accent: NEON.ember, locked: '' },
+      { id: 'titans', label: 'TITANS', sub: TITANS[0].name, accent: NEON.ember, locked: '' },
       { id: '1v1', label: '1V1', sub: 'BOT · QUICK MATCH', accent: NEON.magenta, locked: '1V1 COMES AFTER THE TITANS' },
       { id: 'practice', label: 'PRACTICE', sub: 'TARGET RINGS', accent: NEON.lime, locked: '' },
     ];
@@ -90,19 +95,32 @@ export class ConsoleSystem extends createSystem({}) {
       b.root.position.set((i - 1) * (cardW + gap), -0.004, 0.004);
       this.homeFace.add(b.root);
       this.cards.push(b);
+      if (d.id === 'titans') this.titansCard = b;
     });
 
     // The results face: the same three places.
     const results = [
       { id: 'rematch', label: 'REMATCH', sub: 'SAME TITAN', accent: NEON.ember, press: () => setMode('titans') },
-      { id: 'next', label: 'NEXT TITAN', sub: 'PISTONKAISER', accent: NEON.magenta, press: () => undefined },
+      {
+        id: 'next',
+        label: 'NEXT TITAN',
+        sub: '',
+        accent: NEON.magenta,
+        press: () => {
+          game.titan++;
+          setMode('titans');
+        },
+      },
       { id: 'home', label: 'HOME', sub: 'BACK TO THE CARDS', accent: NEON.cyan, press: () => (game.result = null) },
     ];
     results.forEach((d, i) => {
       const b = addButton(new PokeButton({ id: d.id, width: cardW, height: cardH, label: d.label, sub: d.sub, accent: d.accent, onPress: d.press }));
       if (d.id === 'next') {
-        b.setLocked(true);
-        b.onLockedPress = () => this.setStatus('PISTONKAISER IS STILL BEING BUILT', 2.5);
+        this.nextCard = b;
+        b.onLockedPress = () => {
+          const next = TITANS[game.titan + 1];
+          this.setStatus(next ? `${next.name} IS STILL BEING BUILT` : 'THAT WAS THE LAST TITAN', 2.5);
+        };
       }
       b.root.position.set((i - 1) * (cardW + gap), -0.004, 0.004);
       this.resultFace.add(b.root);
@@ -160,6 +178,11 @@ export class ConsoleSystem extends createSystem({}) {
   /** Home cards, or the last fight's result. */
   private showFace(r: FightResult | null): void {
     this.shownResult = r;
+    const here = TITANS[game.titan];
+    const next = TITANS[game.titan + 1];
+    this.titansCard.setText('TITANS', here?.name ?? TITANS[0].name);
+    this.nextCard.setText('NEXT TITAN', next?.name ?? 'NONE LEFT');
+    this.nextCard.setLocked(!playable(next?.name));
     this.homeFace.visible = !r;
     this.resultFace.visible = !!r;
     const text = r ? `${r.titan} ${r.won ? 'FELLED' : 'WINS'}` : 'FIRE FIGHT FLUX';

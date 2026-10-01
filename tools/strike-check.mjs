@@ -98,7 +98,7 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   const from = new Vector3(0.6, 1.3, -1.6);
   const head = new Vector3(0.05, 1.6, 0);
   const outward = new Vector3(1, 0, 0);
-  for (const path of ['jab', 'hook', 'overhand', 'sweep']) {
+  for (const path of ['jab', 'hook', 'overhand', 'sweep', 'piston']) {
     const p0 = strikePoint(path, from, head, outward, 0, new Vector3());
     let nearest = Infinity;
     const prev = p0.clone();

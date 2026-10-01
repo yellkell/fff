@@ -401,6 +401,61 @@ if (offered) {
   s = await S();
   t = await T();
   check('the console comes back on its results face', s.mode === 'home' && t.result?.won === true && s.buttons.rematch.active, JSON.stringify(t.result));
+
+  // ── PISTONKAISER, from NEXT TITAN ──
+  check('NEXT TITAN is open now PISTONKAISER is built', !s.buttons.next.locked);
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'fight');
+  check('NEXT TITAN prints PISTONKAISER in', t.name === 'PISTONKAISER' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('its weak points take turns: the core opens first', t.open === 'core', t.open);
+  {
+    const before = t.hitsTaken;
+    await debug({ force: 'piston' });
+    const lefts = new Set();
+    const end = Date.now() + 10000;
+    while (Date.now() < end) {
+      t = await T();
+      if (t.act) lefts.add(t.act.left);
+      if (lefts.has(0) && t.act === null) break;
+      await page.waitForTimeout(40);
+    }
+    check('the PISTON is three blows on the beat, all landing on a head that stays put', t.hitsTaken - before === 3 && lefts.size === 3, `hits ${t.hitsTaken - before}, chain ${[...lefts].join('→')}`);
+  }
+  {
+    // A ball at the core: it's open, it counts, and the visor opens instead.
+    let hit = null;
+    for (let i = 0; i < 3 && !hit; i++) {
+      const pre = await T();
+      await place('hand-right', AIM);
+      await settle(900);
+      await pinch(1);
+      await settle(300);
+      await swing(true, AIM);
+      t = await until((x) => x.hitsLanded + x.armourHits > pre.hitsLanded + pre.armourHits, 3000);
+      if (t.hitsLanded > pre.hitsLanded) hit = t;
+    }
+    check('a hit on the open core shuts it and opens the visor', hit?.open === 'head', hit ? `${hit.hitsLanded} weak · open ${hit.open}` : 'no weak hit in 3 throws');
+    // The same throw again: the core is shut now, so it's armour.
+    const pre = await T();
+    for (let i = 0; i < 3; i++) {
+      await place('hand-right', AIM);
+      await settle(900);
+      await pinch(1);
+      await settle(300);
+      await swing(true, AIM);
+      t = await until((x) => x.hitsLanded + x.armourHits > pre.hitsLanded + pre.armourHits, 3000);
+      if (t.hitsLanded + t.armourHits > pre.hitsLanded + pre.armourHits) break;
+    }
+    check('a ball on the shut core only sparks off', t.armourHits > pre.armourHits && t.hitsLanded === pre.hitsLanded, `${t.hitsLanded - pre.hitsLanded} weak, ${t.armourHits - pre.armourHits} armour`);
+  }
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  check('PISTONKAISER falls to the results face', s.mode === 'home' && t.result?.titan === 'PISTONKAISER' && t.result?.won === true, JSON.stringify(t.result));
+  check('and NEXT TITAN locks again: VULTURE is still being built', s.buttons.next.locked);
   await poke('home');
   s = await S();
   check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);

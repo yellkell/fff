@@ -55,11 +55,18 @@ export function glowSprite(color: ColorRepresentation, size: number, opacity = 1
 
 /* ── sparks: one pooled Points cloud for every burst in the scene ─────── */
 
+/*
+ * Over passthrough, ALPHA is what hides the room: additive blending still
+ * adds each fragment's alpha to the frame, so a spark faded to black but
+ * still drawn is a black disc in your room. Every spark fades its alpha
+ * with its colour, and a spent one is drawn fully clear.
+ */
+
 const MAX_SPARKS = 600;
 
 export class Sparks {
   private readonly pos = new Float32Array(MAX_SPARKS * 3);
-  private readonly col = new Float32Array(MAX_SPARKS * 3);
+  private readonly col = new Float32Array(MAX_SPARKS * 4);
   private readonly vel = new Float32Array(MAX_SPARKS * 3);
   private readonly life = new Float32Array(MAX_SPARKS);
   private readonly base = new Float32Array(MAX_SPARKS * 3);
@@ -70,7 +77,7 @@ export class Sparks {
 
   constructor(scene: Scene) {
     this.geo.setAttribute('position', new BufferAttribute(this.pos, 3));
-    this.geo.setAttribute('color', new BufferAttribute(this.col, 3));
+    this.geo.setAttribute('color', new BufferAttribute(this.col, 4));
     this.points = new Points(
       this.geo,
       new PointsMaterial({
@@ -112,7 +119,7 @@ export class Sparks {
   update(delta: number): void {
     for (let i = 0; i < MAX_SPARKS; i++) {
       if (this.life[i] <= 0) {
-        this.col[i * 3] = this.col[i * 3 + 1] = this.col[i * 3 + 2] = 0;
+        this.col[i * 4] = this.col[i * 4 + 1] = this.col[i * 4 + 2] = this.col[i * 4 + 3] = 0;
         continue;
       }
       this.life[i] -= delta;
@@ -122,7 +129,10 @@ export class Sparks {
         this.pos[i * 3 + k] += this.vel[i * 3 + k] * delta;
       }
       const f = Math.max(0, Math.min(1, this.life[i] * 2));
-      for (let k = 0; k < 3; k++) this.col[i * 3 + k] = this.base[i * 3 + k] * f;
+      // Additive light is scaled by alpha, so fading alpha alone fades the
+      // light, and the frame's alpha with it.
+      for (let k = 0; k < 3; k++) this.col[i * 4 + k] = this.base[i * 3 + k];
+      this.col[i * 4 + 3] = f;
     }
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.color.needsUpdate = true;
