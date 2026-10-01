@@ -256,6 +256,16 @@ export const FIGHT = {
   boltSpeed: 4.2,
   boltRadius: 0.06,
   boltLife: 1.8,
+  /** The mortar: shells lobbed from the pods to fall on where you stood,
+   *  this long in the air, under this gravity (a gentle arc that clears an
+   *  ordinary ceiling), and this big to judge. */
+  shellTime: 1.05,
+  shellGravity: 2.8,
+  shellRadius: 0.09,
+  /** The decree's bolts fly this fast. */
+  decreeSpeed: 4,
+  /** The sweeping beam scythes this far either side of where it locked. */
+  sweepReach: 1.1,
   /** A weak-point hit freezes the titan this long: the blow lands. */
   hitStop: 0.08,
   /** Standing off the pad drains you, per second. */

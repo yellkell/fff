@@ -10,21 +10,27 @@
  *            lunges in behind the blow.
  *   FALLING  it un-prints, top down, whoever won.
  *
- * Judging is in 3D against your real head and hands, swept frame to frame:
- *   - a fist's path through your head is a HIT (your platform rim reddens);
- *   - an open palm facing the fist, or a ball orbiting your hand, in its
- *     path BLOCKS it: the fist bounces off and the titan staggers;
- *   - the eye beam locks on before it fires; the same palm or ball blocks it.
- * Your fireballs hurt it on its lit weak points (visor and chest core);
- * anywhere else on it they spark off the armour. Some titans open only one
- * weak point at a time (titans/fights.ts): a shut one is armour too.
- *
  * Which titan you fight is `game.titan` (the console sets it); how it
- * fights is its entry in titans/fights.ts.
+ * fights is its entry in titans/fights.ts. What it can do:
  *
- * A VOLLEY throws bolts instead of a fist: they leave the wingtips (or the
- * shoulders), fly at where your head was as each one left, and are judged
- * like a fist, swept frame to frame against your palms, balls and head.
+ *   FISTS    one arm, or both at once (a CLAP, meeting on your head), or a
+ *            chain from alternating arms on a beat (a PISTON).
+ *   BEAMS    from its eye: locked on your head, or locked at your head's
+ *            HEIGHT and swept across the pad (duck under it).
+ *   BOLTS    things it throws: a VOLLEY from wingtips or launcher pods, a
+ *            MORTAR lobbed from the pods to fall on where you stood, and
+ *            GOLIATH's DECREE, a row of bolts with one gap (decree.ts).
+ *
+ * Judging is in 3D against your real head and hands, swept frame to frame:
+ *   - a fist's, bolt's or beam's path through your head is a HIT (your
+ *     platform rim reddens);
+ *   - an open palm facing into it, or a ball orbiting your hand, in its
+ *     path BLOCKS it. A blocked fist or beam staggers the titan.
+ *
+ * Your fireballs hurt it on its lit weak points, which open in the order
+ * its pattern says (titans/weak.ts); anywhere else they spark off the
+ * armour. Some titans ENRAGE at half health: shorter gaps, never shorter
+ * tells.
  *
  * Hits land with weight: a flash and a shockwave where they hit
  * (fx/impact.ts), a weak-point hit freezes the titan for a beat and flares
@@ -43,8 +49,9 @@ import {
   Group,
   type Material,
   Mesh,
-  type Object3D,
   MeshBasicMaterial,
+  type MeshStandardMaterial,
+  type Object3D,
   Plane,
   PlaneGeometry,
   RingGeometry,
@@ -59,12 +66,25 @@ import { fx, glowSprite } from '../fx/neon.js';
 import { addHittable } from '../game/hittables.js';
 import { game, setMode } from '../game/state.js';
 import { hands, SIDES } from '../input/hands.js';
+import { type DecreePlan, planDecree } from '../titans/decree.js';
 import { FIGHTS, playable, type TitanFight } from '../titans/fights.js';
 import { type ArmChain, reach } from '../titans/ik.js';
 import { buildTitan, type TitanRig } from '../titans/rigs.js';
 import { TITANS, type TitanLook } from '../titans/roster.js';
 import { stageScale } from '../titans/stage.js';
-import { isFist, pickStrike, segmentDistance, segmentParam, type StrikeDef, type StrikePath, strikePoint, windupOffset } from '../titans/strike.js';
+import {
+  armsOf,
+  isFist,
+  lob,
+  pickStrike,
+  segmentDistance,
+  segmentParam,
+  type StrikeDef,
+  type StrikePath,
+  strikePoint,
+  windupOffset,
+} from '../titans/strike.js';
+import { type WeakPart, WeakCycle } from '../titans/weak.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { orbitingBall } from './FireballSystem.js';
 
@@ -85,41 +105,73 @@ interface Arm extends ArmChain {
   was: Vector3;
 }
 
+/** One arm's part in a blow (a clap has two). */
+interface Swing {
+  i: 0 | 1;
+  /** World: the windup point the fist leaves from. */
+  from: Vector3;
+  /** Its side, as a world direction. */
+  outward: Vector3;
+  /** Where the fist was when the blow ended, for the way home. */
+  home: Vector3;
+}
+
 interface Act {
   def: StrikeDef;
   stage: Stage;
   t: number;
-  /** World: the windup point the blow leaves from, and your head, snapped. */
-  from: Vector3;
+  /** World: your head, snapped (a fist's target, a beam's lock). */
   to: Vector3;
-  outward: Vector3;
-  /** Where the fist was when the blow ended, for the way home. */
-  home: Vector3;
+  swings: Swing[];
   lunge: number;
   locked: boolean;
   landed: boolean;
   /** Blows still to come in this chain (a PISTON), and whether you broke it. */
   left: number;
   blocked: boolean;
-  /** Bolts thrown so far (a volley). */
+  /** Bolts thrown so far (a volley, a mortar). */
   fired: number;
+  /** A sweeping beam: where its aim starts and ends, world. */
+  sweepFrom: Vector3;
+  sweepTo: Vector3;
+  /** A decree: its lanes and gap, and the bolts held over the crown. */
+  plan: DecreePlan | null;
+  held: Bolt[];
+  /** Every bolt it throws shares this, so a decree can only hit you once. */
+  group: number;
 }
 
-/** A volley's bolt in flight. */
+/** Something thrown, in flight (or held, waiting to go). */
 interface Bolt {
   obj: Group;
+  halo: Sprite;
   pos: Vector3;
   vel: Vector3;
+  /** Gravity on it (m/s²): 0 for a bolt, more for a lobbed shell. */
+  g: number;
+  radius: number;
   age: number;
   damage: number;
+  group: number;
   live: boolean;
+  /** Held in place (a decree's row) until its act fires it. */
+  held: boolean;
 }
 
-/** Where a volley's bolts leave from: a point on a wingtip or shoulder. */
+/** Where bolts leave from: a point on a wingtip or a launcher pod. */
 interface Emitter {
   on: Object3D;
   local: Vector3;
   glow: Sprite;
+}
+
+/** A weak point: where it is, how big, and the lamp that shows it. */
+interface Spot {
+  part: WeakPart;
+  pos: Vector3;
+  radius: number;
+  mat: MeshStandardMaterial | null;
+  on: Object3D | null;
 }
 
 /** What the fight's done, for the probes. */
@@ -129,12 +181,15 @@ export const titanStats = {
   name: '',
   act: null as { path: StrikePath; stage: Stage; left: number } | null,
   /** Which weak points are open: 'both', or the one that's blinking. */
-  open: 'both' as WeakOpen,
+  open: 'both' as 'both' | WeakPart,
+  enraged: false,
+  /** The decree in the air: where its gap is (pad x), or null. */
+  decreeGap: null as number | null,
   hitsTaken: 0,
   blocks: 0,
   hitsLanded: 0,
   armourHits: 0,
-  /** Bolts thrown this fight. */
+  /** Bolts and shells thrown this fight. */
   bolts: 0,
 };
 
@@ -151,19 +206,32 @@ const _head = new Vector3();
 const _local = new Vector3();
 const _dir = new Vector3();
 const _far = new Vector3();
+const _aim = new Vector3();
+const _prev = new Vector3();
+const _into = new Vector3();
+const UP = new Vector3(0, 1, 0);
+const WHITE = new Color(0xffffff);
 const ease = (t: number): number => {
   const u = Math.min(1, Math.max(0, t));
   return u * u * (3 - 2 * u);
 };
 const rand = (lo: number, hi: number): number => lo + Math.random() * (hi - lo);
 /** How big each blow's whoosh is. */
-const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, piston: 0.3, beam: 0, volley: 0 };
-const WHITE = new Color(0xffffff);
-const _prev = new Vector3();
-const _into = new Vector3();
-const BOLTS = 8;
-
-type WeakOpen = 'both' | 'head' | 'core';
+const SWING: Record<StrikePath, number> = {
+  jab: 0.2,
+  hook: 0.6,
+  overhand: 0.5,
+  sweep: 1,
+  piston: 0.3,
+  clap: 0.8,
+  beam: 0,
+  sweepbeam: 0,
+  volley: 0,
+  mortar: 0,
+  decree: 0,
+};
+const BOLTS = 20;
+const PARTS: readonly WeakPart[] = ['head', 'core', 'low', 'shoulderL', 'shoulderR'];
 
 export class TitanSystem extends createSystem({}) {
   private phase: Phase = 'off';
@@ -185,16 +253,21 @@ export class TitanSystem extends createSystem({}) {
   private flinch = 0;
   private weakFlash = 0;
   private beat = 0;
-  private open: WeakOpen = 'both';
-  /** Hits on the open weak point since it opened ('double' swaps at 2). */
-  private openHits = 0;
+  private groups = 0;
+  /** Its weak points, and the order they open in. */
+  private weak = new WeakCycle('both');
+  private readonly spots = new Map<WeakPart, Spot>();
+  /** Half health, for a titan that has one: angrier, never quicker to tell. */
+  private enraged = false;
+  private weights: TitanFight['weights'] = {};
+  private gapRange: readonly [number, number] = [FIGHT.gapMin, FIGHT.gapMax];
   /** A weak-point hit freezes it for a beat; and flares every edge on it. */
   private hitStop = 0;
   private edgeFlash = 0;
   private edgeMats: { mat: MeshBasicMaterial; base: Color; opacity: number }[] = [];
-  /** The volley: bolts in flight, where they leave from, and the wings' flare. */
+  /** Bolts in flight, where they leave from, and the wings' flare. */
   private readonly bolts: Bolt[] = [];
-  private emitters: Emitter[] = [];
+  private tips: { wings: Emitter[]; pods: Emitter[] } = { wings: [], pods: [] };
   private flare = 0;
   private wingRest: { gy: number; gz: number; wz: number }[] = [];
 
@@ -203,15 +276,17 @@ export class TitanSystem extends createSystem({}) {
   private clipped: Material[] = [];
   private scanRing!: Mesh;
 
-  /** Weak points and armour (hittables): centres kept live each frame. */
-  private readonly weakHead = { pos: new Vector3(), radius: 0.2 };
-  private readonly weakCore = { pos: new Vector3(), radius: 0.15 };
+  /** The armour (a hittable): the chest's bulk, kept live each frame. */
   private readonly armour = { pos: new Vector3(), radius: 0.4 };
   private chestLocal = new Vector3();
 
   private beamCore!: Mesh;
   private beamHalo!: Mesh;
   private aimLine!: Mesh;
+  /** A sweeping beam's path, shown across the pad at the height it locked. */
+  private sweepLine!: Mesh;
+  /** A decree's gap, marked on your floor: stand HERE. */
+  private gapMark!: Mesh;
   private flash!: Mesh;
   private flashMat!: MeshBasicMaterial;
   private flashT = 0;
@@ -236,7 +311,8 @@ export class TitanSystem extends createSystem({}) {
     this.beamCore = new Mesh(unit(1), beamMat(NEON.hot, 1));
     this.beamHalo = new Mesh(unit(1), beamMat(NEON.cyan, 0.35));
     this.aimLine = new Mesh(unit(1), beamMat(NEON.cyan, 0.35));
-    for (const m of [this.beamCore, this.beamHalo, this.aimLine]) {
+    this.sweepLine = new Mesh(unit(1), beamMat(NEON.cyan, 0.3));
+    for (const m of [this.beamCore, this.beamHalo, this.aimLine, this.sweepLine]) {
       m.visible = false;
       this.scene.add(m);
     }
@@ -249,6 +325,15 @@ export class TitanSystem extends createSystem({}) {
     this.scanRing.rotation.x = -Math.PI / 2;
     this.scanRing.visible = false;
     this.scene.add(this.scanRing);
+
+    // The decree's safe spot: a lime ring on your floor.
+    this.gapMark = new Mesh(
+      new RingGeometry(0.11, 0.15, 32),
+      new MeshBasicMaterial({ color: NEON.lime, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }),
+    );
+    this.gapMark.rotation.x = -Math.PI / 2;
+    this.gapMark.visible = false;
+    this.scene.add(this.gapMark);
 
     // Taking a hit: a red flash round your head.
     this.flashMat = new MeshBasicMaterial({
@@ -292,37 +377,36 @@ export class TitanSystem extends createSystem({}) {
     this.hudChip.scale.set(0.82, 0.022, 1);
     this.hudChip.renderOrder = 11;
     this.hud.add(this.hudChip);
-
-    // The volley's bolts: a venom-bright glow round a white-hot heart.
-    for (let i = 0; i < BOLTS; i++) {
-      const obj = new Group();
-      obj.add(glowSprite(0xffffff, 0.24, 0.95), glowSprite(NEON.hot, 0.08));
-      obj.visible = false;
-      this.scene.add(obj);
-      this.bolts.push({ obj, pos: new Vector3(), vel: new Vector3(), age: 0, damage: 0, live: false });
-    }
     this.hud.visible = false;
     this.scene.add(this.hud);
 
+    // The bolts: a bright glow in its accent round a white-hot heart.
+    for (let i = 0; i < BOLTS; i++) {
+      const obj = new Group();
+      const halo = glowSprite(0xffffff, 1, 0.95);
+      obj.add(halo, glowSprite(NEON.hot, 0.08));
+      obj.visible = false;
+      this.scene.add(obj);
+      this.bolts.push({ obj, halo, pos: new Vector3(), vel: new Vector3(), g: 0, radius: 0, age: 0, damage: 0, group: 0, live: false, held: false });
+    }
+
     // Weak points first, so a ball that clips both counts on the weak point.
+    for (const part of PARTS) this.spots.set(part, { part, pos: new Vector3(), radius: 0.15, mat: null, on: null });
     const self = this;
-    for (const [w, part] of [
-      [this.weakHead, 'head'],
-      [this.weakCore, 'core'],
-      [this.armour, null],
-    ] as const) {
+    for (const part of [...PARTS, null]) {
+      const w = part ? this.spots.get(part)! : this.armour;
       addHittable({
         pos: w.pos,
         get radius() {
           return w.radius;
         },
-        live: () => self.phase === 'fight',
+        live: () => self.phase === 'fight' && (part === null || self.weak.has(part)),
         // Throws bend toward an OPEN weak point only.
         get assist() {
-          return part !== null && self.isOpen(part);
+          return part !== null && self.weak.isOpen(part);
         },
         onReturn: false,
-        hit: (ball) => (part && self.isOpen(part) ? self.weakHit(ball.at) : self.armourHit(ball.at)),
+        hit: (ball) => (part && self.weak.isOpen(part) ? self.weakHit(ball.at) : self.armourHit(ball.at)),
       });
     }
   }
@@ -351,6 +435,7 @@ export class TitanSystem extends createSystem({}) {
       titanDebug.setHp = null;
       if (this.hp <= 0 && this.phase === 'fight') this.enter('falling');
     }
+    if (this.phase === 'fight') this.checkEnrage();
 
     switch (this.phase) {
       case 'rising': {
@@ -384,15 +469,16 @@ export class TitanSystem extends createSystem({}) {
     const a = this.act;
     if (this.phase === 'fight' && a && a.stage === 'strike') {
       if (a.def.limb === 'eye') this.beamFire(a);
-      else if (a.def.limb === 'wings') this.volleyStep(a);
-      else this.judgeFist(a);
+      else if (a.def.limb === 'bolts') this.boltsStep(a);
+      else this.judgeFists(a);
       if (a.stage === 'strike' && a.t >= a.def.strike) {
         // Missed you: it goes past your head.
-        if (!a.landed && isFist(a.def)) sfx('whiff', this.arms[a.def.limb].at);
+        if (!a.landed && isFist(a.def)) for (const sw of a.swings) sfx('whiff', this.arms[sw.i].at);
         this.toRecover(a);
       }
     }
     if (this.phase === 'fight') this.stepBolts(real);
+    this.updateGapMark(real);
     this.updateHud(real);
     this.updateFlash(real);
     this.syncStats();
@@ -411,7 +497,7 @@ export class TitanSystem extends createSystem({}) {
       if ((this.gap <= 0 && this.stagger <= 0 && !titanDebug.hold) || forced) {
         const def = forced
           ? this.fight.moves.find((m) => m.path === forced) ?? this.fight.moves[0]
-          : pickStrike(this.fight.moves, this.fight.weights, this.last);
+          : pickStrike(this.fight.moves, this.weights, this.last);
         titanDebug.force = null;
         this.begin(def);
       }
@@ -423,60 +509,69 @@ export class TitanSystem extends createSystem({}) {
     const d = a.def;
     if (a.stage === 'windup') {
       if (d.limb === 'eye') this.beamWindup(a);
+      if (d.path === 'decree') this.decreeWindup(a);
       if (a.t >= d.windup) {
         // The windup ends: SNAPSHOT your head, and go.
         if (isFist(d)) {
           a.to.copy(_head);
-          this.windupPoint(a, a.from);
+          for (const sw of a.swings) this.windupPoint(sw, d.path, sw.from);
         }
         this.planLunge(a);
         a.stage = 'strike';
         a.t = 0;
-        if (isFist(d)) {
-          fx.sparks?.burst(this.arms[d.limb].at, 10, this.look.accent, 1.4);
-          sfx('swing', this.arms[d.limb].at, SWING[d.path]);
-        } else if (d.limb === 'eye') {
-          sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
+        for (const sw of a.swings) {
+          const at = this.arms[sw.i].at;
+          fx.sparks?.burst(at, 10, this.look.accent, 1.4);
+          sfx('swing', at, SWING[d.path]);
         }
+        if (d.limb === 'eye') sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
+        if (d.path === 'decree') this.decreeFire(a);
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
       this.act = null;
       // A chain carries on from the other arm, on the beat, unless you broke it.
-      if (a.left > 0 && !a.blocked && isFist(d)) {
+      if (a.left > 0 && !a.blocked && (d.limb === 0 || d.limb === 1)) {
         this.begin({ ...d, limb: d.limb === 0 ? 1 : 0, windup: d.beat ?? d.windup }, a.left - 1);
         return;
       }
       this.last = d.path;
-      const [lo, hi] = this.fight.gap ?? [FIGHT.gapMin, FIGHT.gapMax];
-      this.gap = rand(lo, hi);
+      this.gap = rand(this.gapRange[0], this.gapRange[1]);
     }
   }
 
   private begin(def: StrikeDef, left = (def.combo ?? 1) - 1): void {
+    const root = this.rig!.root;
     const a: Act = {
       def,
       stage: 'windup',
       t: 0,
-      from: new Vector3(),
       to: new Vector3().copy(_head),
-      outward: new Vector3(),
-      home: new Vector3(),
+      swings: armsOf(def).map((i) => ({
+        i,
+        from: new Vector3(),
+        outward: new Vector3(this.arms[i].side, 0, 0).transformDirection(root.matrixWorld),
+        home: new Vector3(),
+      })),
       lunge: 0,
       locked: false,
       landed: false,
       left,
       blocked: false,
       fired: 0,
+      sweepFrom: new Vector3(),
+      sweepTo: new Vector3(),
+      plan: null,
+      held: [],
+      group: ++this.groups,
     };
-    if (isFist(def)) {
-      const arm = this.arms[def.limb];
-      a.outward.set(arm.side, 0, 0).transformDirection(this.rig!.root.matrixWorld);
-      // The tell, from the fist that's coming: your ears know which side.
-      sfx('windup', arm.at, def.windup);
-    } else if (def.limb === 'eye') {
-      sfx('beamCharge', this.rig!.eyeFx.getWorldPosition(_v), def.windup);
-    } else {
-      sfx('volleyCharge', this.armour.pos, def.windup);
+    // The tell, from where it's coming: your ears know which side.
+    for (const sw of a.swings) sfx('windup', this.arms[sw.i].at, def.windup);
+    if (def.limb === 'eye') sfx('beamCharge', this.rig!.eyeFx.getWorldPosition(_v), def.windup);
+    if (def.path === 'volley' || def.path === 'mortar') sfx('volleyCharge', this.armour.pos, def.windup);
+    if (def.path === 'decree') {
+      // Planned from where you stand NOW: the gap is somewhere else.
+      a.plan = planDecree(_head.x);
+      sfx('decreeCharge', this.rig!.head.getWorldPosition(_v), def.windup);
     }
     this.act = a;
   }
@@ -484,60 +579,72 @@ export class TitanSystem extends createSystem({}) {
   private toRecover(a: Act): void {
     a.stage = 'recover';
     a.t = 0;
-    if (isFist(a.def)) a.home.copy(this.arms[a.def.limb].at);
-    this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
+    for (const sw of a.swings) sw.home.copy(this.arms[sw.i].at);
+    this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = this.sweepLine.visible = false;
     this.rig!.eyeFx.visible = false;
   }
 
-  /** How far to step in so the blow can reach where you are. */
+  /** How far to step in so every swinging fist can reach where you are. */
   private planLunge(a: Act): void {
-    if (!isFist(a.def)) {
-      a.lunge = 0;
-      return;
+    a.lunge = 0;
+    for (const sw of a.swings) {
+      const arm = this.arms[sw.i];
+      arm.pivot.getWorldPosition(_v);
+      const reachWorld = (arm.upper + arm.fore + arm.fistLen + FIGHT.telescope * this.look.scale) * this.k;
+      const need = _v.distanceTo(a.to) - reachWorld * 0.9;
+      a.lunge = Math.max(a.lunge, Math.min(FIGHT.lungeMax, Math.max(0, need + 0.1)));
     }
-    const arm = this.arms[a.def.limb];
-    arm.pivot.getWorldPosition(_v);
-    const reachWorld = (arm.upper + arm.fore + arm.fistLen + FIGHT.telescope * this.look.scale) * this.k;
-    const need = _v.distanceTo(a.to) - reachWorld * 0.9;
-    a.lunge = Math.min(FIGHT.lungeMax, Math.max(0, need + 0.1));
   }
 
-  /** The windup point for this act's arm, world space (moves with the titan). */
-  private windupPoint(a: Act, out: Vector3): Vector3 {
-    const arm = this.arms[a.def.limb as 0 | 1];
-    windupOffset(a.def.path, arm.side, _local).multiplyScalar(this.look.scale).add(arm.pivot.position);
+  /** The windup point for a swinging arm, world space (moves with the titan). */
+  private windupPoint(sw: Swing, path: StrikePath, out: Vector3): Vector3 {
+    const arm = this.arms[sw.i];
+    windupOffset(path, arm.side, _local).multiplyScalar(this.look.scale).add(arm.pivot.position);
     return this.rig!.root.localToWorld(out.copy(_local));
   }
 
-  /** The fist in flight: swept against your hands first, then your head. */
-  private judgeFist(a: Act): void {
-    const arm = this.arms[a.def.limb as 0 | 1];
-    const from = arm.was;
-    const to = arm.at;
-    // Which way the fist is travelling: a palm blocks by facing INTO that,
-    // judged on the travel, not on where the fist has got to (a fast fist
-    // can pass a palm between two frames).
-    _dir.copy(to).sub(from);
-    if (_dir.lengthSq() < 1e-10) return;
-    _dir.normalize().negate();
-    // Blocks: an orbiting ball, or an open palm facing the fist.
+  /** The fists in flight: swept against your hands first, then your head. */
+  private judgeFists(a: Act): void {
+    for (const sw of a.swings) {
+      if (a.stage !== 'strike') return;
+      const arm = this.arms[sw.i];
+      const from = arm.was;
+      const to = arm.at;
+      // Which way the fist is travelling: a palm blocks by facing INTO that,
+      // judged on the travel, not on where the fist has got to (a fast fist
+      // can pass a palm between two frames).
+      _dir.copy(to).sub(from);
+      if (_dir.lengthSq() < 1e-10) continue;
+      _dir.normalize().negate();
+      const stop = this.blocker(from, to, arm.radius, _dir);
+      if (stop) return this.blocked(a, stop);
+      if (!a.landed && segmentDistance(from, to, _head) <= arm.radius + FIGHT.headRadius) {
+        a.landed = true;
+        this.hurt(a.def.damage, true);
+        fx.sparks?.burst(to, 30, NEON.danger, 2);
+        // The shockwave a little way out along the blow, not in your eyes.
+        fx.impacts?.hit(_v.copy(from).sub(to).setLength(0.35).add(to), NEON.danger, 0.4, 1);
+        sfx('hitTaken');
+        this.toRecover(a);
+      }
+    }
+  }
+
+  /**
+   * What in your hands stops something travelling from → to (radius r)?
+   * An orbiting ball in its path, or an open palm in its path facing
+   * `into` (against its travel). The point it stops at, or null.
+   */
+  private blocker(from: Vector3, to: Vector3, r: number, into: Vector3): Vector3 | null {
     for (const side of SIDES) {
       const ball = orbitingBall(side);
-      if (ball && segmentDistance(from, to, ball) <= arm.radius + FIREBALL.radius) return this.blocked(a, ball);
+      if (ball && segmentDistance(from, to, ball) <= r + FIREBALL.radius) return ball;
       const h = hands[side];
       if (!h.shape.tracked || h.shape.closed) continue;
-      if (segmentDistance(from, to, h.palm) > arm.radius + FIGHT.palmReach) continue;
-      if (h.palmNormal.dot(_dir) >= FIGHT.palmFacing) return this.blocked(a, h.palm);
+      if (segmentDistance(from, to, h.palm) > r + FIGHT.palmReach) continue;
+      if (h.palmNormal.dot(into) >= FIGHT.palmFacing) return h.palm;
     }
-    if (!a.landed && segmentDistance(from, to, _head) <= arm.radius + FIGHT.headRadius) {
-      a.landed = true;
-      this.hurt(a.def.damage, true);
-      fx.sparks?.burst(to, 30, NEON.danger, 2);
-      // The shockwave a little way out along the blow, not in your eyes.
-      fx.impacts?.hit(_v.copy(from).sub(to).setLength(0.35).add(to), NEON.danger, 0.4, 1);
-      sfx('hitTaken');
-      this.toRecover(a);
-    }
+    return null;
   }
 
   private blocked(a: Act, at: Vector3): void {
@@ -553,31 +660,49 @@ export class TitanSystem extends createSystem({}) {
     this.toRecover(a);
   }
 
-  /* ── the eye beam ──────────────────────────────────────────────────── */
+  /* ── the eye beams ─────────────────────────────────────────────────── */
 
   private beamWindup(a: Act): void {
     const rig = this.rig!;
     const u = a.t / a.def.windup;
     rig.eyeFx.visible = true;
     rig.eyeFx.scale.setScalar(0.3 + 1.2 * u);
+    const eye = rig.eyeFx.getWorldPosition(_v);
     // It tracks you, then LOCKS: the rest of the windup is your time to move.
     if (!a.locked) a.to.copy(_head);
     if (!a.locked && u >= FIGHT.beamLock) {
       a.locked = true;
-      fx.sparks?.burst(rig.eyeFx.getWorldPosition(_v), 12, this.look.accent, 0.8);
-      sfx('beamLock', _v);
+      fx.sparks?.burst(eye, 12, this.look.accent, 0.8);
+      sfx('beamLock', eye);
+      if (a.def.path === 'sweepbeam') {
+        // Locked at your head's HEIGHT: it'll scythe across from one side
+        // to the other, level, so only ducking (or a block) gets you out.
+        const side = Math.random() < 0.5 ? -1 : 1;
+        _dir.copy(a.to).sub(eye).setY(0).normalize();
+        const across = _w.crossVectors(UP, _dir).normalize().multiplyScalar(FIGHT.sweepReach * side);
+        a.sweepFrom.copy(a.to).add(across);
+        a.sweepTo.copy(a.to).sub(across);
+      }
     }
-    rig.eyeFx.getWorldPosition(_v);
-    this.stretch(this.aimLine, _v, a.to, a.locked ? 0.006 : 0.003);
+    const sweep = a.def.path === 'sweepbeam' && a.locked;
+    this.stretch(this.aimLine, eye, sweep ? a.sweepFrom : a.to, a.locked ? 0.006 : 0.003);
     (this.aimLine.material as MeshBasicMaterial).opacity = a.locked ? 0.7 : 0.25;
     (this.aimLine.material as MeshBasicMaterial).color.setHex(a.locked ? NEON.hot : this.look.accent);
+    // The sweep's path, drawn level across the pad: duck under this.
+    if (sweep) {
+      this.stretch(this.sweepLine, a.sweepFrom, a.sweepTo, 0.004);
+      (this.sweepLine.material as MeshBasicMaterial).color.setHex(this.look.accent);
+      (this.sweepLine.material as MeshBasicMaterial).opacity = 0.25 + 0.25 * Math.sin(this.t * 18) ** 2;
+    } else this.sweepLine.visible = false;
   }
 
   private beamFire(a: Act): void {
     const eye = this.rig!.eyeFx.getWorldPosition(_v);
     this.aimLine.visible = false;
-    // The beam runs from the eye through the locked point and on.
-    const far = _far.copy(a.to).sub(eye).normalize().multiplyScalar(6).add(eye);
+    const sweep = a.def.path === 'sweepbeam';
+    const aim = sweep ? _aim.lerpVectors(a.sweepFrom, a.sweepTo, Math.min(1, a.t / a.def.strike)) : a.to;
+    // The beam runs from the eye through the aim point and on.
+    const far = _far.copy(aim).sub(eye).normalize().multiplyScalar(6).add(eye);
     // A palm facing the eye, or an orbiting ball, on the line stops it
     // there; the nearest one to the eye wins.
     let end: Vector3 = far;
@@ -605,6 +730,12 @@ export class TitanSystem extends createSystem({}) {
         this.stagger = FIGHT.stagger * 0.6;
         fx.impacts?.hit(end, this.look.accent, 0.45, 2);
         sfx('block', end);
+        // A sweep you catch on your palm is parried: it stops there.
+        if (sweep) {
+          fx.sparks?.burst(end, 30, NEON.hot, 2);
+          this.toRecover(a);
+          return;
+        }
       }
       if (Math.random() < 0.6) fx.sparks?.burst(end, 4, NEON.hot, 1.6);
     } else if (!a.landed && segmentDistance(eye, far, _head) <= FIGHT.headRadius + FIGHT.beamRadius) {
@@ -612,6 +743,7 @@ export class TitanSystem extends createSystem({}) {
       this.hurt(a.def.damage, true);
       sfx('hitTaken');
     }
+    if (sweep && Math.random() < 0.5) fx.sparks?.burst(end, 2, this.look.accent, 0.8);
   }
 
   /** Stretch a unit cylinder between two world points. */
@@ -625,75 +757,150 @@ export class TitanSystem extends createSystem({}) {
     m.scale.set(r, len, r);
   }
 
-  /* ── the volley ────────────────────────────────────────────────────── */
+  /* ── things it throws ──────────────────────────────────────────────── */
 
-  /** Throw each bolt as its beat comes round, from alternating tips. */
-  private volleyStep(a: Act): void {
+  /** Where a volley or mortar leaves from. */
+  private emittersFor(path: StrikePath): Emitter[] {
+    if (path === 'volley' && this.tips.wings.length) return this.tips.wings;
+    return this.tips.pods;
+  }
+
+  /** Throw each bolt or shell as its beat comes round, from alternating tips. */
+  private boltsStep(a: Act): void {
+    if (a.def.path === 'decree') return;
     const n = a.def.combo ?? 1;
     const beat = a.def.beat ?? 0.4;
     while (a.fired < n && a.t >= a.fired * beat) {
-      this.throwBolt(a.fired, a.def.damage);
+      this.throwFrom(a, a.fired);
       a.fired++;
     }
   }
 
-  private throwBolt(i: number, damage: number): void {
-    const b = this.bolts.find((x) => !x.live);
-    const e = this.emitters[i % this.emitters.length];
+  private freeBolt(): Bolt | null {
+    return this.bolts.find((x) => !x.live) ?? null;
+  }
+
+  private throwFrom(a: Act, i: number): void {
+    const tips = this.emittersFor(a.def.path);
+    const e = tips[i % tips.length];
+    const b = this.freeBolt();
     if (!b || !e) return;
     e.on.localToWorld(b.pos.copy(e.local));
-    // At where your head is as it leaves: keep moving.
-    b.vel.copy(_head).sub(b.pos).setLength(FIGHT.boltSpeed);
+    const shell = a.def.path === 'mortar';
+    if (shell) {
+      // Lobbed to come down on where your head is as it leaves.
+      lob(b.pos, _head, FIGHT.shellTime, FIGHT.shellGravity, b.vel);
+      this.launch(b, a, FIGHT.shellGravity, FIGHT.shellRadius, 0.36);
+      sfx('mortarFire', b.pos);
+      fx.impacts?.hit(b.pos, this.look.accent, 0.4, 1);
+    } else {
+      // Straight at where your head is as it leaves: keep moving.
+      b.vel.copy(_head).sub(b.pos).setLength(FIGHT.boltSpeed);
+      this.launch(b, a, 0, FIGHT.boltRadius, 0.24);
+      sfx('boltFire', b.pos);
+      fx.impacts?.hit(b.pos, this.look.accent, 0.3, 0);
+    }
+    fx.sparks?.burst(b.pos, 14, this.look.accent, 1.2);
+  }
+
+  private launch(b: Bolt, a: Act, g: number, radius: number, size: number): void {
+    b.g = g;
+    b.radius = radius;
     b.age = 0;
-    b.damage = damage;
+    b.damage = a.def.damage;
+    b.group = a.group;
     b.live = true;
+    b.held = false;
+    b.halo.scale.setScalar(size);
     b.obj.position.copy(b.pos);
     b.obj.visible = true;
     titanStats.bolts++;
-    fx.sparks?.burst(b.pos, 14, this.look.accent, 1.2);
-    fx.impacts?.hit(b.pos, this.look.accent, 0.3, 0);
-    sfx('boltFire', b.pos);
+  }
+
+  /**
+   * THE DECREE's windup: its bolts gather one by one in a row over the
+   * king's crown, one per lane across your pad, the gap left dark; and a
+   * lime ring on your floor marks the gap. Stand there.
+   */
+  private decreeWindup(a: Act): void {
+    const plan = a.plan!;
+    const n = plan.lanes.length;
+    const shown = Math.min(n, Math.floor((a.t / (a.def.windup * 0.55)) * n) + 1);
+    // The row: in front of its head, lane for lane with your pad's x.
+    const head = this.rig!.head.getWorldPosition(_w);
+    const rowY = head.y + 0.25;
+    const rowZ = head.z + 0.45;
+    while (a.held.length < shown) {
+      const j = a.held.length;
+      const b = this.freeBolt();
+      if (!b) break;
+      b.pos.set(plan.lanes[j], rowY, rowZ);
+      b.vel.set(0, 0, 0);
+      this.launch(b, a, 0, FIGHT.boltRadius, 0.26);
+      titanStats.bolts--; // not thrown yet
+      b.held = true;
+      a.held.push(b);
+      fx.sparks?.burst(b.pos, 8, this.look.accent, 0.6);
+      sfx('decreeOrb', b.pos, j / Math.max(1, n - 1));
+    }
+    // The row holds to its lanes, and breathes.
+    for (let j = 0; j < a.held.length; j++) {
+      const b = a.held[j];
+      b.pos.set(plan.lanes[j], rowY + Math.sin(this.t * 5 + j) * 0.015, rowZ);
+      b.obj.position.copy(b.pos);
+    }
+  }
+
+  /** Every held bolt fires at once, across its lane at your head's height. */
+  private decreeFire(a: Act): void {
+    for (const b of a.held) {
+      _aim.set(b.pos.x, _head.y, _head.z);
+      b.vel.copy(_aim).sub(b.pos).setLength(FIGHT.decreeSpeed);
+      b.held = false;
+      titanStats.bolts++;
+    }
+    a.held = [];
+    sfx('decreeFire', this.rig!.head.getWorldPosition(_v));
+    fx.impacts?.hit(_v, this.look.accent, 1.2, 2);
   }
 
   /** Bolts in flight, swept frame to frame: palms and balls, then your head. */
   private stepBolts(delta: number): void {
     for (const b of this.bolts) {
-      if (!b.live) continue;
+      if (!b.live || b.held) continue;
       b.age += delta;
       _prev.copy(b.pos);
+      b.vel.y -= b.g * delta;
       b.pos.addScaledVector(b.vel, delta);
       b.obj.position.copy(b.pos);
       if (Math.random() < 0.8) fx.sparks?.burst(b.pos, 1, this.look.accent, 0.25);
-      // A palm blocks by facing into the bolt's travel.
+      // A palm blocks by facing into its travel.
       _into.copy(b.vel).normalize().negate();
-      let stop: Vector3 | null = null;
-      for (const side of SIDES) {
-        const ball = orbitingBall(side);
-        if (ball && segmentDistance(_prev, b.pos, ball) <= FIGHT.boltRadius + FIREBALL.radius) {
-          stop = ball;
-          break;
-        }
-        const h = hands[side];
-        if (!h.shape.tracked || h.shape.closed) continue;
-        if (segmentDistance(_prev, b.pos, h.palm) > FIGHT.boltRadius + FIGHT.palmReach) continue;
-        if (h.palmNormal.dot(_into) >= FIGHT.palmFacing) {
-          stop = h.palm;
-          break;
-        }
-      }
+      const stop = this.blocker(_prev, b.pos, b.radius, _into);
       if (stop) {
         titanStats.blocks++;
         fx.sparks?.burst(stop, 24, NEON.hot, 2);
         fx.impacts?.hit(stop, this.look.accent, 0.35, 1);
         sfx('block', stop);
         this.killBolt(b);
-      } else if (segmentDistance(_prev, b.pos, _head) <= FIGHT.boltRadius + FIGHT.headRadius) {
-        this.hurt(b.damage, true);
-        fx.sparks?.burst(b.pos, 24, NEON.danger, 1.8);
-        sfx('hitTaken');
+      } else if (segmentDistance(_prev, b.pos, _head) <= b.radius + FIGHT.headRadius) {
+        // One volley can hit you once per bolt, but a decree only once.
+        const decree = this.act?.group === b.group && this.act.def.path === 'decree';
+        if (!(decree && this.act!.landed)) {
+          if (decree) this.act!.landed = true;
+          this.hurt(b.damage, true);
+          fx.sparks?.burst(b.pos, 24, NEON.danger, 1.8);
+          sfx('hitTaken');
+        }
         this.killBolt(b);
-      } else if (b.age > FIGHT.boltLife || b.pos.y < 0) {
-        fx.sparks?.burst(b.pos, 10, this.look.accent, 0.8);
+      } else if (b.age > FIGHT.boltLife || b.pos.y < 0.03) {
+        if (b.g > 0) {
+          // A shell bursting on your floor.
+          b.pos.y = Math.max(0.03, b.pos.y);
+          fx.sparks?.burst(b.pos, 30, this.look.accent, 1.6);
+          fx.impacts?.hit(b.pos, this.look.accent, 0.5, 1);
+          sfx('shellBurst', b.pos);
+        } else fx.sparks?.burst(b.pos, 10, this.look.accent, 0.8);
         this.killBolt(b);
       }
     }
@@ -701,6 +908,7 @@ export class TitanSystem extends createSystem({}) {
 
   private killBolt(b: Bolt): void {
     b.live = false;
+    b.held = false;
     b.obj.visible = false;
   }
 
@@ -708,23 +916,27 @@ export class TitanSystem extends createSystem({}) {
     for (const b of this.bolts) this.killBolt(b);
   }
 
-  /* ── being hit, and hitting ────────────────────────────────────────── */
-
-  /** Is this weak point open right now? */
-  private isOpen(part: 'head' | 'core'): boolean {
-    return this.open === 'both' || this.open === part;
+  /** The decree's gap ring on your floor, while a decree is in the air. */
+  private updateGapMark(delta: number): void {
+    const a = this.act;
+    const plan = this.phase === 'fight' && a?.plan && (a.stage === 'windup' || a.stage === 'strike') ? a.plan : null;
+    titanStats.decreeGap = plan ? plan.gap : null;
+    const mat = this.gapMark.material as MeshBasicMaterial;
+    mat.opacity = plan ? Math.min(0.9, mat.opacity + delta * 3) : Math.max(0, mat.opacity - delta * 3);
+    this.gapMark.visible = mat.opacity > 0.01;
+    if (plan) {
+      this.gapMark.position.set(plan.gap, 0.01, 0);
+      this.gapMark.scale.setScalar(1 + 0.15 * Math.sin(this.t * 8));
+    }
   }
+
+  /* ── being hit, and hitting ────────────────────────────────────────── */
 
   private weakHit(at: Vector3): 'stop' {
     titanStats.hitsLanded++;
     this.hp = Math.max(0, this.hp - 1 / this.fight.hits);
     titanStats.hp = this.hp;
-    // Taking turns: shut this one and open the other, after one hit
-    // ('alternate') or two ('double').
-    if (this.open !== 'both' && ++this.openHits >= (this.fight.weak === 'double' ? 2 : 1)) {
-      this.open = this.open === 'head' ? 'core' : 'head';
-      this.openHits = 0;
-    }
+    this.weak.hit();
     this.weakFlash = 1;
     this.flinch = Math.max(this.flinch, 0.7);
     this.hitStop = FIGHT.hitStop;
@@ -736,11 +948,12 @@ export class TitanSystem extends createSystem({}) {
     sfx('weakHit', at);
     if (this.hp <= 0) {
       // The killing blow: the whole machine goes up in light.
-      fx.sparks?.burst(this.weakCore.pos, 120, this.look.accent, 3.2);
-      fx.impacts?.hit(this.weakCore.pos, this.look.accent, 1.8, 2);
+      const core = this.spots.get('core')!.pos;
+      fx.sparks?.burst(core, 120, this.look.accent, 3.2);
+      fx.impacts?.hit(core, this.look.accent, 1.8, 2);
       this.hitStop = FIGHT.hitStop * 3;
       this.enter('falling');
-    }
+    } else this.checkEnrage();
     return 'stop';
   }
 
@@ -750,6 +963,23 @@ export class TitanSystem extends createSystem({}) {
     fx.impacts?.hit(at, this.look.line, 0.22, 1);
     sfx('armour', at);
     return 'stop';
+  }
+
+  /** Half health: it roars, burns brighter, and closes the gaps. */
+  private checkEnrage(): void {
+    const e = this.fight.enrage;
+    if (!e || this.enraged || this.hp > e.at || this.hp <= 0) return;
+    this.enraged = true;
+    this.weights = e.weights;
+    this.gapRange = e.gap;
+    this.stagger = Math.max(this.stagger, 1.2); // it stops to roar
+    this.edgeFlash = 1;
+    this.hitStop = FIGHT.hitStop * 2;
+    for (const m of this.edgeMats) if (m.mat.transparent) m.opacity *= 1.7;
+    const head = this.rig!.head.getWorldPosition(_v);
+    sfx('enrage', head);
+    fx.impacts?.hit(head, this.look.accent, 2.2, 2);
+    fx.sparks?.burst(head, 140, this.look.accent, 3.4);
   }
 
   private hurt(amount: number, flash: boolean): void {
@@ -769,6 +999,7 @@ export class TitanSystem extends createSystem({}) {
     const root = rig.root;
     const a = this.act;
     const striking = a && a.stage !== 'windup';
+    const fists = a && isFist(a.def);
 
     // Face you, except mid-blow: a committed blow doesn't follow your dodge.
     if (!striking) {
@@ -780,11 +1011,11 @@ export class TitanSystem extends createSystem({}) {
 
     // The lunge in behind a blow, and back.
     let lungeWant = 0;
-    if (a && isFist(a.def)) {
+    if (a && fists) {
       if (a.stage === 'windup') lungeWant = a.lunge * 0.25 * ease(a.t / a.def.windup);
       else if (a.stage === 'strike') lungeWant = a.lunge;
     }
-    if (a && a.stage === 'windup' && isFist(a.def) && a.lunge === 0) {
+    if (a && a.stage === 'windup' && fists && a.lunge === 0) {
       // Pre-plan from where you are now, so the windup can lean in early.
       a.to.copy(_head);
       this.planLunge(a);
@@ -805,8 +1036,9 @@ export class TitanSystem extends createSystem({}) {
     // The arms.
     for (let i = 0; i < 2; i++) {
       const arm = this.arms[i];
+      const sw = a?.swings.find((x) => x.i === i) ?? null;
       arm.was.copy(arm.at);
-      const target = this.fistTarget(i, _v);
+      const target = this.fistTarget(i, sw, _v);
       _local.copy(target);
       root.worldToLocal(_local);
       const pole = _w.set(arm.side * 0.8, -0.5, 0.35);
@@ -816,26 +1048,30 @@ export class TitanSystem extends createSystem({}) {
       arm.rod.position.y = -arm.fore;
       root.updateMatrixWorld(true);
       arm.wrist.localToWorld(arm.at.set(0, -arm.fistLen, 0));
-      if (this.phase !== 'fight' || !a || a.def.limb !== i) arm.was.copy(arm.at);
-      // The windup's light on the striking fist.
-      const u = a && a.def.limb === i && a.stage === 'windup' ? a.t / a.def.windup : 0;
+      if (this.phase !== 'fight' || !sw) arm.was.copy(arm.at);
+      // The windup's light on a striking fist.
+      const u = sw && a?.stage === 'windup' ? a.t / a.def.windup : 0;
       arm.glow.visible = u > 0;
       arm.glow.scale.setScalar(0.1 + 0.5 * u * this.look.scale);
     }
 
-    // A volley: the wings flare wide and forward, the tips swell with light.
-    const volley = a && a.def.limb === 'wings' && a.stage !== 'recover' ? a : null;
-    this.flare += ((volley ? 1 : 0) - this.flare) * Math.min(1, delta * 5);
+    // Throwing: the wings flare wide and forward, and the tips (or the
+    // launcher pods) swell with light.
+    const throwing = a && (a.def.path === 'volley' || a.def.path === 'mortar') && a.stage !== 'recover' ? a : null;
+    const flaring = throwing && throwing.def.path === 'volley' && this.tips.wings.length > 0;
+    this.flare += ((flaring ? 1 : 0) - this.flare) * Math.min(1, delta * 5);
     rig.wings.forEach((w, i) => {
       const r = this.wingRest[i];
       w.group.rotation.y = r.gy * (1 - 0.9 * this.flare);
       w.group.rotation.z = r.gz + w.side * 0.3 * this.flare;
       w.wrist.rotation.z = r.wz - w.side * 0.35 * this.flare;
     });
-    const charge = volley ? (volley.stage === 'windup' ? volley.t / volley.def.windup : 1) : 0;
-    for (const e of this.emitters) {
-      e.glow.visible = charge > 0;
-      e.glow.scale.setScalar((0.08 + 0.3 * charge) / this.k);
+    const charge = throwing ? (throwing.stage === 'windup' ? throwing.t / throwing.def.windup : 1) : 0;
+    const lit = throwing ? this.emittersFor(throwing.def.path) : [];
+    for (const e of [...this.tips.wings, ...this.tips.pods]) {
+      const on = lit.includes(e) && charge > 0;
+      e.glow.visible = on;
+      if (on) e.glow.scale.setScalar((0.08 + 0.3 * charge) / this.k);
     }
 
     // A weak-point hit flares every lit edge on it, white, for a moment.
@@ -845,21 +1081,25 @@ export class TitanSystem extends createSystem({}) {
       else e.mat.color.copy(e.base).lerp(WHITE, 0.85 * this.edgeFlash);
     }
 
-    // An open weak point blinks; a shut one sits dim and steady.
+    // An open weak point blinks; a shut one sits dim and steady. Enraged,
+    // everything burns hotter.
     this.weakFlash = Math.max(0, this.weakFlash - delta * 4);
-    const blink = 0.5 + 0.5 * Math.sin(this.t * 6);
-    rig.visorMat.emissiveIntensity = this.isOpen('head') ? 1.2 + 1.2 * blink + 3 * this.weakFlash : 0.35;
-    rig.coreMat.emissiveIntensity = this.isOpen('core') ? 0.5 + 1.4 * blink + 3 * this.weakFlash : 0.15;
+    const blink = 0.5 + 0.5 * Math.sin(this.t * (this.enraged ? 9 : 6));
+    const heat = this.enraged ? 1.4 : 1;
+    for (const s of this.spots.values()) {
+      if (!s.mat || !this.weak.has(s.part)) continue;
+      const [lo, amp, shut] = s.part === 'head' ? [1.2, 1.2, 0.35] : s.part === 'core' ? [0.5, 1.4, 0.15] : [0.6, 1.6, 0.12];
+      s.mat.emissiveIntensity = this.weak.isOpen(s.part) ? heat * (lo + amp * blink) + 3 * this.weakFlash : shut;
+    }
     rig.head.rotation.x = -0.4 * this.flinch;
 
     // Keep the hittables on it.
-    rig.head.getWorldPosition(this.weakHead.pos);
-    rig.core.getWorldPosition(this.weakCore.pos);
+    for (const s of this.spots.values()) s.on?.getWorldPosition(s.pos);
     root.localToWorld(this.armour.pos.copy(this.chestLocal));
   }
 
   /** Where arm `i`'s fist should be this frame, world space. */
-  private fistTarget(i: number, out: Vector3): Vector3 {
+  private fistTarget(i: number, sw: Swing | null, out: Vector3): Vector3 {
     const arm = this.arms[i];
     const root = this.rig!.root;
     // The guard: fists up in front of its chest, breathing.
@@ -867,16 +1107,16 @@ export class TitanSystem extends createSystem({}) {
     const guard = _w.set(arm.side * 0.02, -0.5 + Math.sin(this.t * 1.4 + i) * 0.02, -0.38).multiplyScalar(s).add(arm.pivot.position);
     root.localToWorld(guard);
     const a = this.act;
-    if (!a || a.def.limb !== i || this.phase !== 'fight') return out.copy(guard);
+    if (!a || !sw || this.phase !== 'fight') return out.copy(guard);
     const d = a.def;
     if (a.stage === 'windup') {
-      this.windupPoint(a, out);
+      this.windupPoint(sw, d.path, out);
       return out.lerpVectors(guard, out, ease(a.t / (d.windup * 0.7)));
     }
     if (a.stage === 'strike') {
-      return strikePoint(d.path, a.from, a.to, a.outward, a.t / d.strike, out);
+      return strikePoint(d.path, sw.from, a.to, sw.outward, a.t / d.strike, out);
     }
-    return out.lerpVectors(a.home, guard, ease(a.t / d.recover));
+    return out.lerpVectors(sw.home, guard, ease(a.t / d.recover));
   }
 
   /* ── in and out ────────────────────────────────────────────────────── */
@@ -944,13 +1184,19 @@ export class TitanSystem extends createSystem({}) {
     });
     for (const m of this.clipped) m.clippingPlanes = [this.clip];
 
-    // Weak points and armour, sized off the rig.
-    const headBox = new Box3().setFromObject(rig.head);
-    this.weakHead.radius = (Math.max(...headBox.getSize(new Vector3()).toArray()) / 2) * 0.75;
-    const coreBox = new Box3().setFromObject(rig.core);
+    // Weak points, sized off the rig, and the order they open in.
+    this.weak = new WeakCycle(this.fight.weak);
+    const half = (o: Object3D): number => Math.max(...new Box3().setFromObject(o).getSize(new Vector3()).toArray()) / 2;
+    const place = (part: WeakPart, on: Object3D, mat: MeshStandardMaterial, radius: number): void => {
+      Object.assign(this.spots.get(part)!, { on, mat, radius });
+    };
+    place('head', rig.head, rig.visorMat, half(rig.head) * 0.75);
     // Generous: a ball orbiting your palm leaves up to ~17 cm off it, and
     // there's no trigger to steady a hand-thrown shot.
-    this.weakCore.radius = Math.max(0.14, (Math.max(...coreBox.getSize(new Vector3()).toArray()) / 2) * 2);
+    place('core', rig.core, rig.coreMat, Math.max(0.14, half(rig.core) * 2));
+    place('low', rig.low, rig.lowMat, Math.max(0.14, half(rig.low) * 1.8));
+    place('shoulderL', rig.shoulders[0], rig.shoulderMats[0], Math.max(0.14, half(rig.shoulders[0]) * 1.6));
+    place('shoulderR', rig.shoulders[1], rig.shoulderMats[1], Math.max(0.14, half(rig.shoulders[1]) * 1.6));
     // The armour: the chest's bulk, set BEHIND the core (+z is its back)
     // and small enough that it never sits in front of a weak point, so a
     // clean shot at the core is never spent on armour first.
@@ -966,9 +1212,6 @@ export class TitanSystem extends createSystem({}) {
     (this.hudFill.material as MeshBasicMaterial).color.setHex(this.look.line);
     this.hudFrame.color.setHex(this.look.line);
     (this.scanRing.material as MeshBasicMaterial).color.setHex(this.look.accent);
-    // The core opens first when they take turns: it's the easier shot.
-    this.open = this.fight.weak === 'both' ? 'both' : 'core';
-    this.openHits = 0;
 
     // Its lit edges, to flare on a hit.
     const seen = new Set<Material>();
@@ -982,23 +1225,37 @@ export class TitanSystem extends createSystem({}) {
     });
     this.edgeFlash = 0;
 
-    // Where a volley leaves from: the wingtips, or failing wings the shoulders.
+    // Where things are thrown from: the wingtips, and the launcher pods
+    // (found by their lamps' material).
     this.wingRest = rig.wings.map((w) => ({ gy: w.group.rotation.y, gz: w.group.rotation.z, wz: w.wrist.rotation.z }));
     this.flare = 0;
-    const tips: [Object3D, Vector3][] = rig.wings.length
-      ? rig.wings.map((w) => [w.wrist, new Vector3(w.side * 0.44 * s, 0, 0)])
-      : rig.shoulders.map((m) => [m, new Vector3()]);
-    this.emitters = tips.map(([on, local]) => {
+    const emitter = (on: Object3D, local: Vector3): Emitter => {
       const glow = glowSprite(this.look.accent, 1, 0.95);
       glow.visible = false;
       glow.position.copy(local);
       on.add(glow);
       return { on, local, glow };
-    });
-    for (const b of this.bolts) (b.obj.children[0] as Sprite).material.color.setHex(this.look.accent);
+    };
+    const pods: Object3D[] = [];
+    for (const pm of rig.podMats) {
+      let found: Object3D | null = null;
+      rig.root.traverse((o) => {
+        if (!found && (o as Mesh).material === pm) found = o;
+      });
+      pods.push(found ?? rig.shoulders[pods.length]);
+    }
+    this.tips = {
+      wings: rig.wings.map((w) => emitter(w.wrist, new Vector3(w.side * 0.44 * s, 0, 0))),
+      pods: pods.map((p) => emitter(p, new Vector3())),
+    };
+    for (const b of this.bolts) b.halo.material.color.setHex(this.look.accent);
+    (this.sweepLine.material as MeshBasicMaterial).color.setHex(this.look.accent);
     this.chip = 1;
     this.chipHold = 0;
     this.hitStop = 0;
+    this.enraged = false;
+    this.weights = this.fight.weights;
+    this.gapRange = this.fight.gap ?? [FIGHT.gapMin, FIGHT.gapMax];
 
     this.hp = 1;
     game.playerHp = 1;
@@ -1009,7 +1266,7 @@ export class TitanSystem extends createSystem({}) {
     this.stagger = 0;
     this.lunge = 0;
     this.fightTime = 0;
-    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0 });
+    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, enraged: false, decreeGap: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0 });
     this.enter('rising');
     this.printTo(0);
   }
@@ -1023,11 +1280,9 @@ export class TitanSystem extends createSystem({}) {
     if (p === 'falling') {
       sfx('titanFall', at);
       sfx(this.hp <= 0 ? 'win' : 'lose');
-    }
-    if (p === 'falling') {
       this.act = null;
       this.clearBolts();
-      this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
+      this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = this.sweepLine.visible = false;
       if (this.rig) this.rig.eyeFx.visible = false;
     }
   }
@@ -1052,7 +1307,7 @@ export class TitanSystem extends createSystem({}) {
   private despawn(): void {
     hum('titan', 'engine', this.armour.pos, 0);
     this.clearBolts();
-    this.emitters = [];
+    this.tips = { wings: [], pods: [] };
     this.rig?.dispose();
     this.rig = null;
     this.arms = [];
@@ -1060,7 +1315,9 @@ export class TitanSystem extends createSystem({}) {
     this.phase = 'off';
     this.scanRing.visible = false;
     this.hud.visible = false;
-    this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = false;
+    this.gapMark.visible = false;
+    (this.gapMark.material as MeshBasicMaterial).opacity = 0;
+    this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = this.sweepLine.visible = false;
     game.playerHp = 1;
     setPlatformDanger(0);
   }
@@ -1104,6 +1361,7 @@ export class TitanSystem extends createSystem({}) {
     titanStats.phase = this.phase;
     titanStats.hp = this.hp;
     titanStats.act = this.act ? { path: this.act.def.path, stage: this.act.stage, left: this.act.left } : null;
-    titanStats.open = this.open;
+    titanStats.open = this.weak.open;
+    titanStats.enraged = this.enraged;
   }
 }

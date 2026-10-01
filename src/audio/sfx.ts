@@ -503,6 +503,41 @@ export const SOUNDS = {
     tone({ freq: 520, to: 240, type: 'triangle', dur: 0.14, gain: 0.12 });
     tone({ freq: 95, to: 60, dur: 0.12, gain: 0.12 });
   },
+  mortarFire: () => {
+    // A shell leaving a launcher pod: a deep thump and a rising whistle-free hiss.
+    tone({ freq: 75, to: 38, dur: 0.22, gain: 0.3 });
+    noise(0.22, 0.12, 400, 900, 0, 0.8);
+  },
+  shellBurst: () => {
+    // A shell bursting on your floor.
+    tone({ freq: 90, to: 35, dur: 0.3, gain: 0.26 });
+    noise(0.35, 0.18, 1400, 200, 0, 0.7);
+    clank(320, 0.06, 0.25, 0.01);
+  },
+  decreeCharge: (k = 1) => {
+    // The king raises his decree: a low choir swelling the whole windup.
+    rise(98, 131, k, 0.1, 'triangle', 700);
+    rise(147, 196, k, 0.06, 'triangle', 900);
+    rise(49, 65, k, 0.14, 'sine', 300);
+  },
+  decreeOrb: (k = 0) => {
+    // One bolt of the decree gathering over the crown: a bell climbing the row.
+    pluck(523 * 2 ** k, 0.08, 0.18);
+    tone({ freq: 262 * 2 ** k, type: 'triangle', dur: 0.2, gain: 0.04 });
+  },
+  decreeFire: () => {
+    // Every bolt at once: a low boom and a rush of air.
+    tone({ freq: 70, to: 32, dur: 0.45, gain: 0.32 });
+    noise(0.4, 0.16, 1600, 300, 0, 0.8);
+    [392, 523, 659].forEach((f) => pluck(f, 0.05, 0.3));
+  },
+  enrage: () => {
+    // Half health and furious: a deeper roar under a falling siren-free swell.
+    growl(44, 1.8, 0.24);
+    growl(88, 1.4, 0.12, 0.05);
+    swell(70, 30, 1.9, 0.3, 0, 0.1);
+    noise(1.4, 0.12, 300, 90, 0.05);
+  },
   beamLock: () => {
     pluck(1976, 0.09, 0.08);
     pluck(1976, 0.09, 0.08, 0.1);

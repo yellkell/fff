@@ -12,7 +12,9 @@
 
 import { Group, Vector3 } from 'three';
 import { reach } from '../src/titans/ik.ts';
-import { pickStrike, segmentDistance, strikePoint, windupOffset } from '../src/titans/strike.ts';
+import { armsOf, lob, pickStrike, segmentDistance, strikePoint, windupOffset } from '../src/titans/strike.ts';
+import { WeakCycle } from '../src/titans/weak.ts';
+import { DECREE, laneXs, planDecree } from '../src/titans/decree.ts';
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -98,7 +100,7 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   const from = new Vector3(0.6, 1.3, -1.6);
   const head = new Vector3(0.05, 1.6, 0);
   const outward = new Vector3(1, 0, 0);
-  for (const path of ['jab', 'hook', 'overhand', 'sweep', 'piston']) {
+  for (const path of ['jab', 'hook', 'overhand', 'sweep', 'piston', 'clap']) {
     const p0 = strikePoint(path, from, head, outward, 0, new Vector3());
     let nearest = Infinity;
     const prev = p0.clone();
@@ -129,6 +131,84 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   check('and uses the whole roster', seen.size === 5, [...seen].join(' · '));
   const none = pickStrike(moves, { jab: 1 }, 'jab', rand);
   check('with one move left, it still answers', none.path === 'jab');
+}
+
+// The clap: both arms, each from its own side, meeting on you.
+{
+  check('a clap swings both arms', armsOf({ limb: 'both' }).join() === '0,1' && armsOf({ limb: 0 }).join() === '0' && armsOf({ limb: 'eye' }).length === 0);
+  const head = new Vector3(0, 1.6, 0);
+  const ends = [-1, 1].map((side) => {
+    const from = new Vector3(side * 0.9, 1.7, -1.4);
+    const outward = new Vector3(side, 0, 0);
+    const mid = strikePoint('clap', from, head, outward, 0.5, new Vector3());
+    return { side, mid, end: strikePoint('clap', from, head, outward, 1, new Vector3()) };
+  });
+  check('each clap arm comes in from its own side, and both end on your head', ends.every((e) => Math.sign(e.mid.x) === e.side && e.end.distanceTo(head) < 1e-9));
+}
+
+// The mortar's lob: a shell launched with it lands where it was aimed, on time.
+{
+  let worst = 0;
+  let apex = 0;
+  for (let i = 0; i < 50; i++) {
+    const from = new Vector3(rand() * 1.4 - 0.7, 1.8 + rand() * 0.4, -2.2 + rand() * 0.4);
+    const to = new Vector3(rand() * 1.4 - 0.7, 1.1 + rand() * 0.7, rand() * 0.6 - 0.3);
+    const v = lob(from, to, 1.05, 2.8, new Vector3());
+    const p = from.clone();
+    const dt = 1 / 2000;
+    for (let t = 0; t < 1.05 - 1e-9; t += dt) {
+      v.y -= 2.8 * dt;
+      p.addScaledVector(v, dt);
+      apex = Math.max(apex, p.y);
+    }
+    worst = Math.max(worst, p.distanceTo(to));
+  }
+  check('a lobbed shell lands where it was aimed', worst < 0.01, `${(worst * 1000).toFixed(1)} mm`);
+  check('and clears an ordinary ceiling', apex < 2.5, `apex ${apex.toFixed(2)} m`);
+}
+
+// The weak points: every pattern opens in its order.
+{
+  const walk = (pattern, n) => {
+    const w = new WeakCycle(pattern);
+    const seen = [];
+    for (let i = 0; i < n; i++) {
+      seen.push(w.open);
+      w.hit();
+    }
+    return { seen, w };
+  };
+  check("'both' keeps the visor and core open", walk('both', 3).seen.every((o) => o === 'both') && new WeakCycle('both').isOpen('head') && !new WeakCycle('both').has('low'));
+  check("'alternate' swaps every hit, the core first", walk('alternate', 4).seen.join() === 'core,head,core,head');
+  check("'double' swaps every second hit", walk('double', 6).seen.join() === 'core,core,head,head,core,core');
+  check("'triple' walks visor, core, low", walk('triple', 4).seen.join() === 'head,core,low,head');
+  const crown = walk('crown', 15);
+  check("the crown walks all five stops, three times round in fifteen hits", crown.seen.slice(0, 5).join() === 'head,shoulderL,core,shoulderR,low' && crown.w.loops === 3);
+  const t = new WeakCycle('triple');
+  check('a shut weak point is shut', t.isOpen('head') && !t.isOpen('core') && !t.isOpen('low'));
+}
+
+// The decree: always a gap you can stand in, always somewhere you aren't.
+{
+  const xs = laneXs();
+  const kill = 0.06 + 0.11; // bolt radius + head radius
+  let worstBand = Infinity;
+  let nearest = Infinity;
+  let offPad = 0;
+  for (let i = 0; i < 400; i++) {
+    const head = rand() * 1.6 - 0.8;
+    const p = planDecree(head, rand);
+    // Every lane fired but two, and the gap between its neighbours.
+    const left = Math.max(...p.lanes.filter((x) => x < p.gap));
+    const right = Math.min(...p.lanes.filter((x) => x > p.gap));
+    worstBand = Math.min(worstBand, right - left - 2 * kill);
+    nearest = Math.min(nearest, Math.abs(p.gap - head));
+    if (Math.abs(p.gap) > 0.86 - 0.15) offPad++;
+    if (p.lanes.length !== xs.length - 2) offPad++;
+  }
+  check('a decree fires all but two lanes and leaves a gap a head fits in', worstBand >= 0.25, `safe band ${(worstBand * 100).toFixed(0)} cm`);
+  check('the gap is never where you already stand', nearest >= DECREE.away - 1e-9, `nearest ${(nearest * 100).toFixed(0)} cm away`);
+  check('the gap is always well on the pad', offPad === 0);
 }
 
 const bad = results.filter((r) => !r).length;

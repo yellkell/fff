@@ -90,6 +90,29 @@ rebuilt for the headsets that ship without controllers. **Read
   - its weak points stay open for **two** hits before they swap. Sixteen
     hits fell it.
 
+- **JUGGERNAUT fights** (DESIGN §3.9), the rolling fortress, artillery
+  that can also grab you:
+  - the **mortar**: four shells lobbed from its shoulder pods, each coming
+    down on where you stood as it left. Keep stepping;
+  - the **clap**: both arms thrown wide, then swung in to meet on your
+    head. Duck, step back, or block either fist;
+  - the **sweeping beam**: its eye locks your head's *height*, then
+    scythes level across the whole pad. Duck under it, or palm it;
+  - and a heavy overhand and a jab. Its weak points walk **visor → core →
+    the low blow** on its belt, one hit each. Eighteen hits.
+
+- **GOLIATH fights** (DESIGN §3.10), the king, the last titan. He has
+  learned it all (clap, piston, overhand, a volley from his pods, both
+  beams) and has his own:
+  - the **decree**: a row of bolts gathers over his crown, one per lane
+    across your pad, with a gap two lanes wide and a lime ring on your
+    floor marking it. Then they all fire at once. Stand in the gap, duck,
+    or block your lane's bolt. The gap is never where you're standing;
+  - his weak points walk the **crown**: visor, left shoulder, core, right
+    shoulder, low, three times round (fifteen hits);
+  - at half health he **enrages**: a roar, a hotter burn, shorter gaps
+    and more decrees. His tells never get shorter.
+
 - **Hits that land** (`src/fx/impact.ts`). Every hit flashes and throws a
   shockwave ring that faces you; a weak-point hit also freezes the titan
   for a beat, flares every lit edge on it white, and leaves a white trail
@@ -116,7 +139,7 @@ rebuilt for the headsets that ship without controllers. **Read
   faded to black but still drawn was a black dot hanging in the room.
   Sparks and the platform's glow now fade their alpha with their light.
 
-Next up: tune the first three titans on a headset, then JUGGERNAUT.
+All five titans fight. Next up: tune the gauntlet on a headset, then 1V1.
 
 ## Run it
 
@@ -140,8 +163,10 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # loop, and fights RUSTHOOK (hit, dodge, palm block,
                      # beam, a ball on its core, the win and the results),
                      # then PISTONKAISER from NEXT TITAN (the piston chain,
-                     # weak points taking turns) and VULTURE (the volley,
-                     # weak points open for two hits) with the emulator's hands
+                     # weak points taking turns), VULTURE (the volley),
+                     # JUGGERNAUT (mortar, clap, ducking the sweeping beam)
+                     # and GOLIATH (the decree's gap, the enrage) with the
+                     # emulator's hands (-- --shots DIR: a picture of each)
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 npm run check:sounds # needs `npm run dev`: every sound renders, audible and
