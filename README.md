@@ -5,7 +5,7 @@ first**. A cut-down FIRE FIGHT ([`yellkell/ff2`](https://github.com/yellkell/ff2
 rebuilt for the headsets that ship without controllers. **Read
 [`DESIGN.md`](DESIGN.md)** for the whole plan and build order.
 
-## What's here now (build order steps 1–2)
+## What's here now (build order steps 1–4, under way)
 
 - **Passthrough, hands required.** The session is `immersive-ar` with hand
   tracking *required*. There are no controllers in this game.
@@ -66,13 +66,27 @@ rebuilt for the headsets that ship without controllers. **Read
   - you're hurt when a blow or the beam finds your head, or while you stand
     off your pad, and your **platform rim bleeds red** as you go;
   - when it falls (or you do) it un-prints, and the console comes back up
-    on its **results** face: REMATCH, NEXT TITAN (locked), HOME.
+    on its **results** face: REMATCH, NEXT TITAN, HOME.
+
+- **PISTONKAISER fights** (`src/titans/fights.ts`, DESIGN §3.6). NEXT
+  TITAN after RUSTHOOK prints in the foundry press, and the TITANS card
+  follows you to it:
+  - its signature is the **piston**: three straight hammer-block punches
+    from alternating arms on a half-second beat, each aimed at where your
+    head is *then*, so you step left, right, left in time. Block any one
+    of them and the chain breaks;
+  - its overhand is a **drop-forge**, the heaviest blow so far, and it
+    jabs, sweeps and fires its beam like RUSTHOOK, with shorter gaps;
+  - its weak points **take turns**: only one blinks at a time (the core
+    first), and every hit you land on it opens the other. A ball on the
+    shut one just sparks off. Fourteen hits fell it.
 
 - **Sound** (`src/audio/sfx.ts`, DESIGN §2.2). Every sound synthesised
-  live, no files: fireballs that hum in your hands and whoomp away, menus
-  that tick and click, and a titan you can *hear* coming, its windup
-  whining from the fist that's about to swing, the beam charging from its
-  eye, a heartbeat when you're nearly done. Positioned sounds come from
+  live, no files: fireballs that hum softly in your hands and whoomp
+  away, menus that tick and click, and a titan you can *hear* coming, its
+  windup ticking faster and higher from the fist that's about to swing,
+  the beam's chord climbing from its eye, a heartbeat when you're nearly
+  done. Positioned sounds come from
   where they happen, in 3D round your head. Hear them all on the **sound
   board**, `sounds.html`.
 - **Music** (`src/audio/music.ts`): *Overtime* at the console, and FIRE
@@ -82,7 +96,12 @@ rebuilt for the headsets that ship without controllers. **Read
 - The wrist panel is now two by two: **LEAVE** and **RECENTRE**, then
   **SOUND** and **MUSIC**, each on and off, remembered.
 
-Next up: tune RUSTHOOK on a headset, then the other four titans.
+- **Sparks that fade to clear.** Over passthrough, a frame's *alpha* is
+  what hides your room, and additive light still writes it: a spark
+  faded to black but still drawn was a black dot hanging in the room.
+  Sparks and the platform's glow now fade their alpha with their light.
+
+Next up: tune RUSTHOOK and PISTONKAISER on a headset, then VULTURE.
 
 ## Run it
 
@@ -104,8 +123,9 @@ npm run check:strike # the titans' reach and strike paths, and the grammar (plai
 npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # pokes its way through every menu, plays the fireball
                      # loop, and fights RUSTHOOK (hit, dodge, palm block,
-                     # beam, a ball on its core, the win and the results)
-                     # with the emulator's hands
+                     # beam, a ball on its core, the win and the results),
+                     # then PISTONKAISER from NEXT TITAN (the piston chain,
+                     # weak points taking turns) with the emulator's hands
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 npm run check:sounds # needs `npm run dev`: every sound renders, audible and

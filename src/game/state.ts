@@ -27,6 +27,8 @@ export const game = {
   playerHp: 1,
   /** Your head is off the platform (BoundarySystem). */
   headOutside: false,
+  /** Which titan (TITANS index) the TITANS card and REMATCH fight. */
+  titan: 0,
   /** How the last fight ended; the console shows it until you move on. */
   result: null as FightResult | null,
 };

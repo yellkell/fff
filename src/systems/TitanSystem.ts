@@ -16,7 +16,11 @@
  *     path BLOCKS it: the fist bounces off and the titan staggers;
  *   - the eye beam locks on before it fires; the same palm or ball blocks it.
  * Your fireballs hurt it on its lit weak points (visor and chest core);
- * anywhere else on it they spark off the armour.
+ * anywhere else on it they spark off the armour. Some titans open only one
+ * weak point at a time (titans/fights.ts): a shut one is armour too.
+ *
+ * Which titan you fight is `game.titan` (the console sets it); how it
+ * fights is its entry in titans/fights.ts.
  */
 
 import { createSystem } from '@iwsdk/core';
@@ -44,7 +48,7 @@ import { fx, glowSprite } from '../fx/neon.js';
 import { addHittable } from '../game/hittables.js';
 import { game, setMode } from '../game/state.js';
 import { hands, SIDES } from '../input/hands.js';
-import { FIGHTS, type TitanFight } from '../titans/fights.js';
+import { FIGHTS, playable, type TitanFight } from '../titans/fights.js';
 import { type ArmChain, reach } from '../titans/ik.js';
 import { buildTitan, type TitanRig } from '../titans/rigs.js';
 import { TITANS, type TitanLook } from '../titans/roster.js';
@@ -83,13 +87,19 @@ interface Act {
   lunge: number;
   locked: boolean;
   landed: boolean;
+  /** Blows still to come in this chain (a PISTON), and whether you broke it. */
+  left: number;
+  blocked: boolean;
 }
 
 /** What the fight's done, for the probes. */
 export const titanStats = {
   phase: 'off' as Phase,
   hp: 1,
-  act: null as { path: StrikePath; stage: Stage } | null,
+  name: '',
+  act: null as { path: StrikePath; stage: Stage; left: number } | null,
+  /** Which weak points are open: 'both', or the one that's blinking. */
+  open: 'both' as WeakOpen,
   hitsTaken: 0,
   blocks: 0,
   hitsLanded: 0,
@@ -115,7 +125,9 @@ const ease = (t: number): number => {
 };
 const rand = (lo: number, hi: number): number => lo + Math.random() * (hi - lo);
 /** How big each blow's whoosh is. */
-const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, beam: 0 };
+const SWING: Record<StrikePath, number> = { jab: 0.2, hook: 0.6, overhand: 0.5, sweep: 1, piston: 0.3, beam: 0 };
+
+type WeakOpen = 'both' | 'head' | 'core';
 
 export class TitanSystem extends createSystem({}) {
   private phase: Phase = 'off';
@@ -137,6 +149,7 @@ export class TitanSystem extends createSystem({}) {
   private flinch = 0;
   private weakFlash = 0;
   private beat = 0;
+  private open: WeakOpen = 'both';
 
   /** Clipping for the print-in: everything below the plane's height shows. */
   private readonly clip = new Plane(new Vector3(0, -1, 0), 0);
@@ -157,6 +170,7 @@ export class TitanSystem extends createSystem({}) {
   private flashT = 0;
 
   private hud!: Group;
+  private hudFrame!: MeshBasicMaterial;
   private hudFill!: Mesh;
   private hudName!: TextPlane;
 
@@ -205,7 +219,9 @@ export class TitanSystem extends createSystem({}) {
     this.hud = new Group();
     // Big enough to read from the pad: text ~5 cm tall at 2.2 m.
     this.hud.add(glass(0.9, 0.12, 0.014));
-    this.hud.add(frame(0.9, 0.12, 0.004, NEON.ember, 0.014));
+    const hudFrame = frame(0.9, 0.12, 0.004, NEON.ember, 0.014);
+    this.hudFrame = hudFrame.material as MeshBasicMaterial;
+    this.hud.add(hudFrame);
     this.hudName = textPlane(0.84, 0.055);
     this.hudName.mesh.position.y = 0.024;
     this.hud.add(this.hudName.mesh);
@@ -222,10 +238,10 @@ export class TitanSystem extends createSystem({}) {
 
     // Weak points first, so a ball that clips both counts on the weak point.
     const self = this;
-    for (const [w, weak] of [
-      [this.weakHead, true],
-      [this.weakCore, true],
-      [this.armour, false],
+    for (const [w, part] of [
+      [this.weakHead, 'head'],
+      [this.weakCore, 'core'],
+      [this.armour, null],
     ] as const) {
       addHittable({
         pos: w.pos,
@@ -233,9 +249,12 @@ export class TitanSystem extends createSystem({}) {
           return w.radius;
         },
         live: () => self.phase === 'fight',
-        assist: weak,
+        // Throws bend toward an OPEN weak point only.
+        get assist() {
+          return part !== null && self.isOpen(part);
+        },
         onReturn: false,
-        hit: (ball) => (weak ? self.weakHit(ball.at) : self.armourHit(ball.at)),
+        hit: (ball) => (part && self.isOpen(part) ? self.weakHit(ball.at) : self.armourHit(ball.at)),
       });
     }
   }
@@ -255,6 +274,7 @@ export class TitanSystem extends createSystem({}) {
     if (titanDebug.setHp !== null) {
       this.hp = titanDebug.setHp;
       titanDebug.setHp = null;
+      if (this.hp <= 0 && this.phase === 'fight') this.enter('falling');
     }
 
     switch (this.phase) {
@@ -344,12 +364,18 @@ export class TitanSystem extends createSystem({}) {
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
       this.act = null;
+      // A chain carries on from the other arm, on the beat, unless you broke it.
+      if (a.left > 0 && !a.blocked && d.limb !== 'eye') {
+        this.begin({ ...d, limb: d.limb === 0 ? 1 : 0, windup: d.beat ?? d.windup }, a.left - 1);
+        return;
+      }
       this.last = d.path;
-      this.gap = rand(FIGHT.gapMin, FIGHT.gapMax);
+      const [lo, hi] = this.fight.gap ?? [FIGHT.gapMin, FIGHT.gapMax];
+      this.gap = rand(lo, hi);
     }
   }
 
-  private begin(def: StrikeDef): void {
+  private begin(def: StrikeDef, left = (def.combo ?? 1) - 1): void {
     const a: Act = {
       def,
       stage: 'windup',
@@ -361,6 +387,8 @@ export class TitanSystem extends createSystem({}) {
       lunge: 0,
       locked: false,
       landed: false,
+      left,
+      blocked: false,
     };
     if (def.limb !== 'eye') {
       const arm = this.arms[def.limb];
@@ -438,6 +466,7 @@ export class TitanSystem extends createSystem({}) {
     this.stagger = FIGHT.stagger;
     this.flinch = 1;
     a.lunge = 0;
+    a.blocked = true;
     this.toRecover(a);
   }
 
@@ -514,10 +543,17 @@ export class TitanSystem extends createSystem({}) {
 
   /* ── being hit, and hitting ────────────────────────────────────────── */
 
+  /** Is this weak point open right now? */
+  private isOpen(part: 'head' | 'core'): boolean {
+    return this.open === 'both' || this.open === part;
+  }
+
   private weakHit(at: Vector3): 'stop' {
     titanStats.hitsLanded++;
     this.hp = Math.max(0, this.hp - 1 / this.fight.hits);
     titanStats.hp = this.hp;
+    // Taking turns: every hit shuts this one and opens the other.
+    if (this.open !== 'both') this.open = this.open === 'head' ? 'core' : 'head';
     this.weakFlash = 1;
     this.flinch = Math.max(this.flinch, 0.7);
     fx.sparks?.burst(at, 50, this.look.accent, 2.6);
@@ -604,11 +640,11 @@ export class TitanSystem extends createSystem({}) {
       arm.glow.scale.setScalar(0.1 + 0.5 * u * this.look.scale);
     }
 
-    // The weak points blink: they're open (FF2's 'both').
+    // An open weak point blinks; a shut one sits dim and steady.
     this.weakFlash = Math.max(0, this.weakFlash - delta * 4);
     const blink = 0.5 + 0.5 * Math.sin(this.t * 6);
-    rig.visorMat.emissiveIntensity = 1.2 + 1.2 * blink + 3 * this.weakFlash;
-    rig.coreMat.emissiveIntensity = 0.5 + 1.4 * blink + 3 * this.weakFlash;
+    rig.visorMat.emissiveIntensity = this.isOpen('head') ? 1.2 + 1.2 * blink + 3 * this.weakFlash : 0.35;
+    rig.coreMat.emissiveIntensity = this.isOpen('core') ? 0.5 + 1.4 * blink + 3 * this.weakFlash : 0.15;
     rig.head.rotation.x = -0.4 * this.flinch;
 
     // Keep the hittables on it.
@@ -641,7 +677,8 @@ export class TitanSystem extends createSystem({}) {
   /* ── in and out ────────────────────────────────────────────────────── */
 
   private spawn(): void {
-    this.look = TITANS[0];
+    if (!playable(TITANS[game.titan]?.name)) game.titan = 0;
+    this.look = TITANS[game.titan];
     this.fight = FIGHTS[this.look.name];
     const rig = buildTitan(this.look);
     this.rig = rig;
@@ -722,6 +759,10 @@ export class TitanSystem extends createSystem({}) {
       glowText(g, this.look.name, w / 2, h / 2, this.look.line);
     });
     (this.hudFill.material as MeshBasicMaterial).color.setHex(this.look.line);
+    this.hudFrame.color.setHex(this.look.line);
+    (this.scanRing.material as MeshBasicMaterial).color.setHex(this.look.accent);
+    // The core opens first when they take turns: it's the easier shot.
+    this.open = this.fight.weak === 'alternate' ? 'core' : 'both';
 
     this.hp = 1;
     game.playerHp = 1;
@@ -732,7 +773,7 @@ export class TitanSystem extends createSystem({}) {
     this.stagger = 0;
     this.lunge = 0;
     this.fightTime = 0;
-    Object.assign(titanStats, { hp: 1, act: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0 });
+    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0 });
     this.enter('rising');
     this.printTo(0);
   }
@@ -785,10 +826,13 @@ export class TitanSystem extends createSystem({}) {
     setPlatformDanger(0);
   }
 
-  /** The engine idling in its chest, and your heart when you're nearly done. */
+  /** The engine in its chest, and your heart when you're nearly done. It
+   *  barely ticks over at idle and revs as the machine lunges, so it's
+   *  heard when it means something, not as a drone under the whole fight. */
   private sound(delta: number): void {
-    const level = this.phase === 'fight' ? 0.06 : this.phase === 'rising' ? 0.06 * (this.phaseT / FIGHT.riseTime) : 0;
-    hum('titan', 'engine', this.armour.pos, level, 1 + 0.4 * this.lunge);
+    const rev = Math.min(1, this.lunge / 0.5);
+    const level = this.phase === 'fight' ? 0.012 + 0.05 * rev : this.phase === 'rising' ? 0.012 * (this.phaseT / FIGHT.riseTime) : 0;
+    hum('titan', 'engine', this.armour.pos, level, 1 + 0.5 * rev);
     this.beat -= delta;
     if (this.phase === 'fight' && game.playerHp < 0.3 && this.beat <= 0) {
       sfx('heartbeat');
@@ -816,6 +860,7 @@ export class TitanSystem extends createSystem({}) {
   private syncStats(): void {
     titanStats.phase = this.phase;
     titanStats.hp = this.hp;
-    titanStats.act = this.act ? { path: this.act.def.path, stage: this.act.stage } : null;
+    titanStats.act = this.act ? { path: this.act.def.path, stage: this.act.stage, left: this.act.left } : null;
+    titanStats.open = this.open;
   }
 }

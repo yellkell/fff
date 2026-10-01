@@ -17,7 +17,7 @@
 
 import { Vector3 } from 'three';
 
-export type StrikePath = 'jab' | 'hook' | 'overhand' | 'sweep' | 'beam';
+export type StrikePath = 'jab' | 'hook' | 'overhand' | 'sweep' | 'piston' | 'beam';
 
 export interface StrikeDef {
   path: StrikePath;
@@ -27,6 +27,11 @@ export interface StrikeDef {
   strike: number;
   recover: number;
   damage: number;
+  /** Blows in a chain (default 1). Each one after the first comes from the
+   *  OTHER arm, wound up for `beat` seconds, aimed at where your head is by
+   *  then: keep moving on the beat. A block breaks the chain. */
+  combo?: number;
+  beat?: number;
 }
 
 /**
@@ -44,6 +49,8 @@ export function windupOffset(path: StrikePath, side: number, out: Vector3): Vect
       return out.set(side * 0.15, 0.45, 0.2); // raised high over the shoulder
     case 'sweep':
       return out.set(side * 0.75, -0.25, -0.1); // out wide, low, the arm laid open
+    case 'piston':
+      return out.set(side * 0.05, -0.38, 0.25); // drawn right back to the hip, a ram cocked
     case 'beam':
       return out.set(0, 0, 0);
   }
@@ -68,6 +75,7 @@ export function strikePoint(
   let end = to;
   switch (path) {
     case 'jab':
+    case 'piston':
       break; // straight down the line
     case 'hook':
       c.addScaledVector(outward, 0.55); // arcs in from the side

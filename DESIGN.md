@@ -22,7 +22,10 @@ opaque world or a platform-floor telegraph gets rebuilt. Same stack:
    thrown thing, a sweeping arm. Nothing lights up on the floor and then
    hurts you.
 4. **Neon.** Dark glass, emissive tubes, additive glow. It reads against
-   any room, lit or dark.
+   any room, lit or dark. *Over passthrough, alpha is what hides the
+   room*, and additive blending still writes it: light that fades must
+   fade its alpha too, or it fades to a black hole in the room (the spent
+   sparks did, as black dots).
 
 ---
 
@@ -102,16 +105,19 @@ two neon ones (a plucked synth note and an electric zap): no files.
 - **Sound stands in for haptics.** Every press, catch, block and hit has
   one, next to its light.
 - **Sound comes from where it happens.** Positioned sounds go through an
-  HRTF panner, with the listener on your head. The titan's windup whines
+  HRTF panner, with the listener on your head. The titan's windup ticks
   from the fist that's about to swing, so you hear which side before you
   see it, and the beam charges from its eye. Your own hits play in your
   ears.
-- **Tells are loud.** The windup and the beam charge rise across their
-  whole windup, so the strike lands at the top of the sound; the beam's
-  lock is a sharp double blip: *move now*.
-- **Hums** for the continuous things: each ball hums at its hand (higher
-  as it flies), and the titan's engine idles in its chest and revs as it
-  lunges.
+- **Tells are loud, not shrill.** The windup is a ratchet whose ticks
+  speed up and climb over a low swell, so the blow lands where the ticks
+  run out; the beam charge is a soft chord climbing its whole windup; the
+  beam's lock is a sharp double blip: *move now*. (Both were detuned saw
+  sirens at first: heard every two seconds, they grated.)
+- **Hums** for the continuous things, kept low and pure (triangles, in
+  tune, darkly filtered: nothing that beats or buzzes, since they run all
+  fight): each ball hums at its hand (higher as it flies), and the
+  titan's engine barely ticks over until it lunges, then revs.
 - **SOUND** on the wrist panel mutes it all; the choice is remembered.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it
@@ -250,6 +256,31 @@ only: FF2's `delivery.ts` stays FF2's.
   damage, the gap between blows, how generous the palm block and the core
   are, and whether 2.2 m reads as *in your face* enough.
 
+### 3.6 PISTONKAISER, as built
+
+The second fight, and the first one the gauntlet's plumbing carries: the
+fight system takes any titan with an entry in `titans/fights.ts`
+(`game.titan` says which), and the results face's **NEXT TITAN** opens
+whenever the next one in the roster has one. It moves the TITANS card on
+too.
+
+- **The piston** (FF2's march, as strikes): a chain of three straight
+  blows from alternating arms. The first winds up for 1 s; each one after
+  for a 0.5 s beat, aimed at your head as *that* windup ends. Every blow
+  is judged on its own (10% each); block any one and the chain breaks
+  and the titan staggers. A `StrikeDef` with `combo` and `beat` is a
+  chain, so any titan can have one.
+- **The drop-forge:** its overhand, 1.25 s windup, 30%.
+- Also the jab, the sweep and the beam, with gaps of 0.6–1.2 s (RUSTHOOK:
+  0.8–1.5). Weighted piston 4, overhand 3, jab 2, sweep 2, beam 2.
+- **Weak points take turns** (FF2's `'alternate'`): only one is open,
+  blinking; the shut one sits dim and steady and counts as armour (no
+  aim assist toward it). The core opens first; every hit flips it. 14
+  hits.
+- **Open, to tune on a headset:** whether a half-second beat is
+  dodgeable three times running, and whether the shut point reads as
+  shut from the pad.
+
 ---
 
 ## 4 · 1v1 — the second mode
@@ -323,7 +354,8 @@ laid out on your floor.
 ## 8 · Build order
 
 Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
-RUSTHOOK's fight with the palm block (§3.5). See the README.
+RUSTHOOK's fight with the palm block (§3.5). Step 4 has begun:
+PISTONKAISER fights (§3.6). See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

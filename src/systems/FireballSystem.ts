@@ -254,7 +254,7 @@ export class FireballSystem extends createSystem({}) {
       b.core.visible = lit;
       // Its hum: quiet while it orbits, singing higher as it flies.
       const orbit = b.state === State.Orbit;
-      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible ? (away ? 0.09 : orbit ? 0.04 + 0.03 * b.spin : 0) : 0, away ? 1.5 : 1 + 0.25 * b.spin);
+      hum(`ball-${b.side}`, 'ball', b.pos, b.group.visible ? (away ? 0.05 : orbit ? 0.015 + 0.015 * b.spin : 0) : 0, away ? 1.5 : 1 + 0.25 * b.spin);
       if (away) {
         b.trail -= delta;
         if (b.trail <= 0) {
