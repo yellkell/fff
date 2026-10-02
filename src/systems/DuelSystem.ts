@@ -305,9 +305,10 @@ export class DuelSystem extends createSystem({}) {
         break;
       }
       case 'countdown': {
-        const left = DUEL.countdown - this.phaseT;
+        // ROUND n for a beat, then the 3-2-1.
+        const left = DUEL.countdown + DUEL.roundCard - this.phaseT;
         const n = Math.ceil(left);
-        if (n !== this.lastCount && n > 0) {
+        if (n !== this.lastCount && n > 0 && left <= DUEL.countdown) {
           this.lastCount = n;
           this.message = String(n);
           sfx('count');
@@ -425,7 +426,11 @@ export class DuelSystem extends createSystem({}) {
     this.won = this.rounds[0] >= DUEL.winTarget;
     const label = this.label;
     this.message = winner === null ? 'DRAW' : winner === 0 ? 'ROUND TO YOU' : `ROUND TO ${label}`;
-    for (const b of this.balls) if (b.state === 'flying') this.spend(b, false);
+    for (const b of this.balls) {
+      if (b.state === 'flying') this.spend(b, false);
+      if (b.state === 'orbit') b.state = 'home';
+    }
+    this.pose.winding[0] = this.pose.winding[1] = false;
     this.bot.windup = -1;
     this.bot.followUp = -1;
     this.enter('roundOver');

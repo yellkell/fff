@@ -288,8 +288,9 @@ export const DUEL = {
   roundTime: 60,
   /** First to this many rounds takes the match (FF2's quick match). */
   winTarget: 2,
-  /** The rival materialises, then the 3-2-1 before every round. */
+  /** The rival materialises; then before every round, ROUND n and a 3-2-1. */
   introTime: 1.6,
+  roundCard: 1,
   countdown: 3,
   /** The breather after a round, and the hold on the final verdict. */
   roundOverTime: 2.6,

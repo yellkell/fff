@@ -628,7 +628,9 @@ if (offered) {
   let d = await D();
   check('poking 1V1 brings the ROOKIE in', (await S()).mode === 'duel' && d.phase === 'intro' && d.label === 'ROOKIE', `${d.phase} · ${d.label}`);
   d = await untilD((x) => x.phase === 'countdown', 5000);
-  check('a countdown before the round', d.phase === 'countdown' && d.round === 1, d.message);
+  check('ROUND 1 before the countdown', d.phase === 'countdown' && d.round === 1 && d.message === 'ROUND 1', d.message);
+  d = await untilD((x) => x.message === '3', 3000);
+  check('then 3, 2, 1', d.phase === 'countdown' && d.message === '3', d.message);
   d = await untilD((x) => x.phase === 'fight', 6000);
   check('the bell: round 1', d.phase === 'fight' && d.round === 1 && d.message === 'FIGHT', `${d.phase} · ${d.message}`);
   if (shotDir) await shot('duel');
