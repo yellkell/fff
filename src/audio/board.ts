@@ -23,6 +23,7 @@ const GROUPS: { title: string; cues: Cue[] }[] = [
       { name: 'recall', label: 'Recall', what: 'close while it flies' },
       { name: 'catch', label: 'Catch', what: 'back in your hand' },
       { name: 'fizzle', label: 'Fizzle', what: 'burnt out, or hit the floor' },
+      { name: 'fireRoar', label: 'In flight', what: 'the roar a flying ball makes' },
       { name: 'targetPop', label: 'Target pop', what: 'a practice ring bursts' },
     ],
   },

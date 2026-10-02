@@ -114,16 +114,19 @@ two neon ones (a plucked synth note and an electric zap): no files.
   run out; the beam charge is a soft chord climbing its whole windup; the
   beam's lock is a sharp double blip: *move now*. (Both were detuned saw
   sirens at first: heard every two seconds, they grated.)
-- **Your fireballs are quiet.** You make their sounds hundreds of times a
-  fight, right by your ears: ignite, throw, recall, catch and fizzle are
-  soft, low and short (a body more than a sound), with no zaps, hiss or
-  whistling sweeps. A ball held in your hand is silent, and one that
-  drops because the cameras lost your hand drops silently (mid-fight
-  hands leave the cameras all the time; it used to zap every time).
-- **Hums** for the continuous things, kept low and pure (triangles, in
-  tune, darkly filtered: nothing that beats or buzzes): a ball in flight
-  hums faintly so you can hear where it is, and the titan's engine
-  barely ticks over until it lunges, then revs.
+- **Your fireballs sound like fire**, as in FIRE FIGHT 2: its ignite (an
+  igniter latch, the furnace catching, a sub thump), throw (a deep
+  falling whoomp), recall (its rising mirror) and catch (a latch, a slap,
+  a thud), verbatim. Where FF2 has none, they're flames too: a drop
+  gutters down to a pilot light, a fizzle hisses out. In flight a ball
+  ROARS (a looping flame roar with crackles, `hum(…, 'fire')`) so you can
+  hear where it is; in your hand it's quiet, as in FF2. A ball dropped
+  because the cameras lost your hand drops silently (mid-fight hands
+  leave the cameras all the time).
+  (They were neon for a while: zaps, then a soft hum. Neither was fire.)
+- **The engine** in the titan's chest is kept low and pure (a triangle
+  and its octave, darkly filtered): it barely ticks over until it
+  lunges, then revs.
 - **SOUND** on the wrist panel mutes it all; the choice is remembered.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it

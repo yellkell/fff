@@ -131,8 +131,8 @@ rebuilt for the headsets that ship without controllers. **Read
   up in light.
 
 - **Sound** (`src/audio/sfx.ts`, DESIGN §2.2). Every sound synthesised
-  live, no files: fireballs that catch, whoomp away and come home with
-  soft, low sounds (silent while you hold them), menus that tick and click, and a titan you can *hear* coming, its
+  live, no files: fireballs that sound like fire, as in FIRE FIGHT 2
+  (a furnace catching, a deep whoomp away, a roar in flight), menus that tick and click, and a titan you can *hear* coming, its
   windup ticking faster and higher from the fist that's about to swing,
   the beam's chord climbing from its eye, a heartbeat when you're nearly
   done. Positioned sounds come from
