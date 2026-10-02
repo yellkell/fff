@@ -860,11 +860,13 @@ export class DuelSystem extends createSystem({}) {
     // Its right, as it faces you.
     _right.crossVectors(_fwd, UP).normalize();
 
+    // The probes' guard: held up all the while, on the line to your ball
+    // when one's coming (as a real guard tracks it), else to your head.
     const guard = duelDebug.guard && this.ballHome(1);
     if (guard) {
       bot.blockHand = 1;
       bot.blockTimer = Math.max(bot.blockTimer, 0.1);
-      bot.blockAt.copy(_head);
+      bot.blockAt.copy(this.incoming() ?? _head);
     }
     for (const hand of [0, 1] as const) {
       const side = hand === 0 ? -1 : 1;
@@ -876,7 +878,7 @@ export class DuelSystem extends createSystem({}) {
         // The guard: this glove on the line between its head and your ball.
         _w.copy(bot.blockAt).sub(head);
         if (_w.lengthSq() < 1e-6) _w.copy(_fwd);
-        _w.setLength(guard ? 0.3 : BOT.blockReach).add(head);
+        _w.setLength(BOT.blockReach).add(head);
         at.lerp(_w, Math.min(1, delta * 16));
       } else {
         _w.set(head.x, head.y - (winding ? 0.05 : 0.18) + bob, head.z)

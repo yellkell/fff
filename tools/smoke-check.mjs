@@ -694,7 +694,9 @@ if (offered) {
   }
   check('your ball lands on it', d.hitsLanded > 0 && d.rivalHp < 1, `${d.headHits} on the head of ${d.hitsLanded}, its health ${d.rivalHp.toFixed(2)}`);
 
-  // Meet its ball with yours, in the air, on its line.
+  // Meet its ball with yours, in the air, on its line. (Fresh health for
+  // both: a try that misses flies on and lands, on it or on you.)
+  await duelDebug({ setRivalHp: 1, setPlayerHp: 1 });
   {
     const LINE = { x: -0.05, y: 1.5, z: -0.4 };
     let tries = 0;
@@ -714,7 +716,7 @@ if (offered) {
     }
     check('your ball meets its ball in the air: both burn out', d.clashes > 0, `clashes ${d.clashes} in ${tries} tries · blocks ${d.blocks} · hits ${d.hitsTaken}`);
   }
-  await duelDebug({ guard: true });
+  await duelDebug({ guard: true, setRivalHp: 1, setPlayerHp: 1 });
   await settle(400);
   d = await D();
   const landed = d.hitsLanded;
@@ -730,6 +732,9 @@ if (offered) {
   await duelDebug({ guard: false });
 
   // Three rounds: you take one, it takes one, you take the match.
+  await duelDebug({ setRivalHp: 1, setPlayerHp: 1 });
+  await settle(100);
+  check('still round 1, nobody down yet', (await D()).round === 1 && (await D()).rounds.join('–') === '0–0', (await D()).rounds.join('–'));
   await duelDebug({ setRivalHp: 0 });
   d = await untilD((x) => x.phase === 'roundOver', 3000);
   check('knock it down: the round is yours', d.rounds[0] === 1 && d.rounds[1] === 0 && d.message === 'ROUND TO YOU', `${d.rounds.join('–')} · ${d.message}`);
