@@ -103,6 +103,18 @@ export function orbitingBall(side: Side): Vector3 | null {
   return b && b.state === State.Orbit && b.group.visible ? b.pos : null;
 }
 
+/** Your balls in the air right now, where and how fast: the duel's bot
+ *  watches them come. */
+export function ballsInFlight(): { pos: Vector3; vel: Vector3 }[] {
+  return live.filter((b) => b.state === State.Flying).map((b) => ({ pos: b.pos, vel: b.vel }));
+}
+
+/** A ball flying HOME to a hand, if any: in a duel it parries on the way. */
+export function returningBall(side: Side): Vector3 | null {
+  const b = live.find((x) => x.side === side);
+  return b && b.state === State.Returning ? b.pos : null;
+}
+
 let live: Ball[] = [];
 
 /** The last release's numbers, for the probes: its speed, and the newest

@@ -13,6 +13,7 @@
     "check:smoke": "node tools/smoke-check.mjs",
     "check:titans": "node tools/titan-check.mjs",
     "check:strike": "node --experimental-strip-types --no-warnings tools/strike-check.mjs",
+    "check:duel": "node --experimental-strip-types --no-warnings --import ./tools/ts-resolve.mjs tools/duel-check.mjs",
     "check:sounds": "node tools/sound-check.mjs"
   },
   "dependencies": {

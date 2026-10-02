@@ -422,6 +422,51 @@ Flux does the same, in neon (`systems/VitalsSystem.ts`).
 - Networking starts on the plain WebSocket relay (FF2's
   `server/index.mjs`), so **no Firebase is needed to play**.
 
+### 4.1 The bot, as built
+
+1V1 against FF2's bot comes first (`systems/DuelSystem.ts`, `duel/`). The
+relay plugs into the same rival when it comes: the rival is a puppet
+(`duel/rival.ts`) that takes a head, two hands and a few flags a frame, so
+a remote player's pose packets can drive it as the bot does now.
+
+- **The stage:** a second pad, the same octagon in ember with a violet
+  stripe, turned round 3 m (FF2's `ARENA_GAP`) from yours. The rival is
+  the titans' finish on a body your size: dark glass, lit edges, an ember
+  visor, gloves that burn white when they guard. It fades in and out; its
+  health, the score and the round clock hang over its head, with the
+  3-2-1 and the verdicts above them.
+- **The rules** (FF2's quick match): first to two rounds, 60 s each, a
+  3-2-1 and a bell before every round; at the bell's end the healthier
+  fighter takes it, level is a draw. 20% a hit on the body, 25% on the
+  head. Standing off your pad drains you, as against a titan.
+- **The bodies** (`duel/body.ts`, FF2's head-driven spine): head, chest
+  and pelvis spheres solved from the head alone, hips pinned under it and
+  set back behind the face. Yours is judged against its balls, its against
+  yours. Ducking and leaning swing the whole torso.
+- **Your defence** is the titan fight's guard (`game/guard.ts`, now shared):
+  an open palm facing into the ball, or a ball orbiting your hand, in its
+  path; in a duel a ball flying home parries too (FF2's parry). Your ball
+  meeting its ball in the air burns both out (FF2's clash).
+- **Its defence:** it dodges (sidestep, duck or stand), or raises a guard
+  that slaps your ball down, but only with its own ball home in that glove
+  (your parry's law). Throws within ~25° of its head bend 40% onto it.
+- **The brain** is FF2's `BotSystem` and `BOT_LADDER`, verbatim, for one bot
+  (`duel/brain.ts`): cadence, wind-up, ball speed and aim slop; aim lag (a
+  rookie throws at where your head was) against lead (a veteran throws at
+  where it's going); low throws, more of them the more you duck; reaction
+  range and delay; block or dodge, and a rookie's step the wrong way; and
+  the tricks the sharper rungs earn (pre-dodge, punish, feint, double tap).
+  Flux has no XP yet, so you climb the ladder by hand: **NEXT BOT** on the
+  results face is a rung up. FF2's mercy stays: while you trail on rounds,
+  the four lower rungs ease off a little.
+- **Checks:** `check:duel` proves the ladder, mercy, the body, the aim (every
+  rung's throw arrives within a centimetre of its mark) and the dodge;
+  `check:smoke` plays the duel with the emulator's hands.
+- **Open, to tune on a headset:** whether 3 m fits a real room (the rival's
+  pad reaches 3.75 m out), whether the rookie's 3.4 m/s balls read as
+  dodgeable without being dull, how generous the palm is against a ball
+  rather than a fist, and whether the rival's lights read across a lit room.
+
 ---
 
 ## 5 · Platforms
@@ -483,8 +528,9 @@ laid out on your floor.
 
 Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
 RUSTHOOK's fight with the palm block (§3.5). Step 4 is built: all five
-titans fight (§3.6, §3.7, §3.9, §3.10). Next is tuning them on a headset,
-then 1V1. See the README.
+titans fight (§3.6, §3.7, §3.9, §3.10). Step 5 is half built: 1V1 against
+the bot (§4.1). Next is tuning the titans and the duel on a headset, then
+1V1 over the relay. See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

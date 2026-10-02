@@ -61,8 +61,9 @@ import {
 } from 'three';
 import { setPlatformDanger } from '../arena/platform.js';
 import { hum, sfx } from '../audio/sfx.js';
-import { FIGHT, FIREBALL, NEON, STAGE } from '../config.js';
+import { FIGHT, NEON, STAGE } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
+import { guardStop } from '../game/guard.js';
 import { addHittable } from '../game/hittables.js';
 import { game, setMode } from '../game/state.js';
 import { hands, SIDES } from '../input/hands.js';
@@ -636,21 +637,9 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  /**
-   * What in your hands stops something travelling from → to (radius r)?
-   * An orbiting ball in its path, or an open palm in its path facing
-   * `into` (against its travel). The point it stops at, or null.
-   */
+  /** What in your hands stops something travelling from → to (game/guard.ts). */
   private blocker(from: Vector3, to: Vector3, r: number, into: Vector3): Vector3 | null {
-    for (const side of SIDES) {
-      const ball = orbitingBall(side);
-      if (ball && segmentDistance(from, to, ball) <= r + FIREBALL.radius) return ball;
-      const h = hands[side];
-      if (!h.shape.tracked || h.shape.closed) continue;
-      if (segmentDistance(from, to, h.palm) > r + FIGHT.palmReach) continue;
-      if (h.palmNormal.dot(into) >= FIGHT.palmFacing) return h.palm;
-    }
-    return null;
+    return guardStop(from, to, r, into);
   }
 
   private blocked(a: Act, at: Vector3): void {
@@ -1338,7 +1327,7 @@ export class TitanSystem extends createSystem({}) {
   }
 
   private finish(): void {
-    game.result = { titan: this.look.name, won: this.hp <= 0, time: this.fightTime };
+    game.result = { mode: 'titans', titan: this.look.name, won: this.hp <= 0, time: this.fightTime };
     this.despawn();
     setMode('home');
   }

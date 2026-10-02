@@ -665,6 +665,33 @@ export const SOUNDS = {
     tone({ freq: 62, to: 40, dur: 0.12, gain: 0.26 });
     tone({ freq: 58, to: 38, dur: 0.14, gain: 0.2, delay: 0.18 });
   },
+  // The duel (1V1): a bell to start every round, the 3-2-1 before it, your
+  // ball landing on the rival, and the knockout.
+  count: () => {
+    pluck(880, 0.11, 0.16);
+    tone({ freq: 440, to: 430, dur: 0.12, gain: 0.05 });
+  },
+  bell: () => {
+    // A boxing bell, rung twice: a struck partial stack ringing out.
+    for (const d of [0, 0.26]) {
+      [1, 2.76, 5.4].forEach((m, i) => tone({ freq: 620 * m, to: 610 * m, type: 'sine', dur: 0.9 - i * 0.25, gain: 0.11 / (i + 1), delay: d }));
+      clank(2400, 0.06, 0.08, d);
+    }
+  },
+  rivalHit: (k = 0) => {
+    // Your fire landing on a body: a thump and a burst of flame, brighter
+    // and higher on the head (k = 1).
+    tone({ freq: 140 + 60 * k, to: 50, dur: 0.22, gain: 0.26 });
+    noise(0.22, 0.16, 300, 2400 + 1600 * k);
+    clank(700 + 500 * k, 0.12 + 0.08 * k, 0.25);
+    if (k > 0.5) [1319, 1760].forEach((f, i) => pluck(f, 0.06, 0.2, 0.04 + i * 0.05));
+  },
+  ko: () => {
+    // Down: a heavy drop, the flame snuffed, and a falling chime.
+    tone({ freq: 90, to: 30, dur: 0.6, gain: 0.3 });
+    noise(0.9, 0.12, 1800, 120);
+    [988, 740, 494].forEach((f, i) => pluck(f, 0.08, 0.4, 0.12 + i * 0.12));
+  },
   win: () => {
     [523, 659, 784, 1047].forEach((f, i) => pluck(f, 0.1, 0.4, i * 0.09));
     [1047, 1319, 1568].forEach((f) => pluck(f, 0.06, 0.9, 0.42));
