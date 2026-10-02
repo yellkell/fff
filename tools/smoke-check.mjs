@@ -2,8 +2,8 @@
 /**
  * SMOKE, headless: the page boots in the IWSDK desktop emulator, offers
  * the passthrough session and enters it, onto the CONSOLE. Then the
- * emulator's HANDS drive everything with real fingertip pokes: a locked
- * card refuses, PRACTICE starts; the whole fireball loop plays (a pinch
+ * emulator's HANDS drive everything with real fingertip pokes: PRACTICE
+ * starts; the whole fireball loop plays (a pinch
  * lights the ball, a punch that opens throws it, a lazy open just drops it
  * back, a pinch while it's away recalls it and a held pinch catches it);
  * a palm turned up and looked at opens the WRIST PANEL, whose LEAVE goes
@@ -14,11 +14,18 @@
  * gauntlet: PISTONKAISER's piston chain and turn-taking weak points,
  * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
  * under, then taken standing), and GOLIATH's decree (dodged in its gap,
- * then taken in a lane) and his enrage. Last, from off-centre, RECENTRE
+ * then taken in a lane) and his enrage. Then 1V1: the ROOKIE fades in,
+ * counts you down and rings the bell; its ball lands on a still head,
+ * misses one that steps aside after the release, is knocked out of the air
+ * by an open palm, and finds your hips when thrown low; your ball lands on
+ * it, meets its ball in the air, and is slapped down by its raised guard;
+ * three rounds go 2–1 to the results face, NEXT BOT climbs a rung, a lost
+ * match is lost, and at the top rung NEXT BOT locks (and a locked card
+ * refuses). Last, from off-centre, RECENTRE
  * puts the pad back under you. Throughout, the sound: it starts with the
  * Enter press, every moment above fires its sound, and SOUND on the wrist
  * panel mutes it and brings it back; and the music follows along (Overtime
- * at the console, Aim in practice, a battle track in the fight, the victory
+ * at the console, Aim in practice, a battle track in each fight, the victory
  * sting, then Overtime again), with MUSIC muting it. No page errors
  * throughout.
  * (The fist path is proven joint by joint in check:hands; the emulator's
@@ -216,10 +223,6 @@ if (offered) {
   let s = await S();
   check('you arrive at the console', s.mode === 'home' && s.buttons.practice?.active, s.mode);
   check('no balls at the console', (await page.evaluate(() => window.__flux.balls())).length === 2);
-  await poke('1v1');
-  s = await S();
-  check('a locked card refuses', s.mode === 'home' && s.buttons['1v1'].presses === 0 && s.buttons['1v1'].refusals === 1);
-  await settle(350); // one poke, one action: past the cooldown
   await sweep('practice');
   s = await S();
   check('a finger sliding in from the side presses nothing', s.mode === 'home' && s.buttons.practice.presses === 0);
@@ -264,7 +267,7 @@ if (offered) {
 
   {
     const log = (await SND()).log;
-    const need = ['consoleRise', 'consoleSink', 'uiClick', 'uiDenied', 'ignite', 'drop', 'throw', 'recall', 'catch'];
+    const need = ['consoleRise', 'consoleSink', 'uiClick', 'ignite', 'drop', 'throw', 'recall', 'catch'];
     const missing = need.filter((n) => !log[n]);
     check('the menus and the fireball loop all make their sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : need.join(' · '));
   }
@@ -604,6 +607,186 @@ if (offered) {
 
   m = await musicIs('home', (tr) => tr === 'overtime', 15000);
   check('then the console’s music comes back', m.cue === 'home' && m.track === 'overtime', `${m.cue} · ${m.track}`);
+
+  // ── 1V1 ──
+  const D = () => page.evaluate(() => window.__flux.duel());
+  const duelDebug = (patch) => page.evaluate((p) => Object.assign(window.__flux.duelDebug, p), patch);
+  const untilD = async (fn, ms = 8000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      const d = await D();
+      if (fn(d)) return d;
+      await page.waitForTimeout(40);
+    }
+    return D();
+  };
+  await handsDown();
+  await duelDebug({ hold: true, still: true });
+  s = await S();
+  check('the 1V1 card is open', s.buttons['1v1'].active && !s.buttons['1v1'].locked);
+  await poke('1v1');
+  let d = await D();
+  check('poking 1V1 brings the ROOKIE in', (await S()).mode === 'duel' && d.phase === 'intro' && d.label === 'ROOKIE', `${d.phase} · ${d.label}`);
+  d = await untilD((x) => x.phase === 'countdown', 5000);
+  check('a countdown before the round', d.phase === 'countdown' && d.round === 1, d.message);
+  d = await untilD((x) => x.phase === 'fight', 6000);
+  check('the bell: round 1', d.phase === 'fight' && d.round === 1 && d.message === 'FIGHT', `${d.phase} · ${d.message}`);
+  if (shotDir) await shot('duel');
+  m = await musicIs('titans', (tr) => tr && tr !== 'aim' && tr !== 'overtime');
+  check('a battle track plays under the duel', m.cue === 'titans' && m.playing, m.track);
+  check('your health bar rises for it', (await page.evaluate(() => window.__flux.vitals())).visible);
+
+  await duelDebug({ throwNow: 'head' });
+  d = await untilD((x) => x.hitsTaken > 0, 6000);
+  check('its ball lands on a head that stays put, for a quarter', d.hitsTaken === 1 && Math.abs(d.playerHp - 0.75) < 1e-6, `your health ${d.playerHp.toFixed(2)}`);
+  await untilD((x) => x.rivalBalls.every((b) => b === 'home'), 5000);
+
+  await duelDebug({ throwNow: 'head' });
+  await untilD((x) => x.rivalBalls.includes('flying'), 4000);
+  await place('headset', { x: 0.5, y: 1.6, z: 0 });
+  await untilD((x) => !x.rivalBalls.includes('flying'), 4000);
+  d = await D();
+  check('stepping aside after its release makes it miss', d.hitsTaken === 1, `hits taken ${d.hitsTaken}`);
+  await place('headset', { x: 0, y: 1.6, z: 0 });
+  await untilD((x) => x.rivalBalls.every((b) => b === 'home'), 5000);
+
+  // An open palm facing it, in front of your face.
+  {
+    const PALM_OUT = { x: 0.5, y: 0, z: 0, w: 0.8660254 };
+    await place('hand-left', { x: 0, y: 1.5, z: -0.3 }, PALM_OUT);
+    await settle(150);
+    const pl = await page.evaluate(() => window.__flux.hands().left);
+    const want = [0.0, 1.6, -0.3];
+    const lt = await page.evaluate(() => window.IWER_DEVICE.remote.dispatch('get_transform', { device: 'hand-left' }));
+    await place('hand-left', { x: lt.position.x + want[0] - pl.palm[0], y: lt.position.y + want[1] - pl.palm[1], z: lt.position.z + want[2] - pl.palm[2] }, PALM_OUT);
+    await settle(150);
+  }
+  await duelDebug({ throwNow: 'head' });
+  d = await untilD((x) => x.blocks > 0 || x.hitsTaken > 1, 6000);
+  check('an open palm in its path knocks its ball out of the air', d.blocks === 1 && d.hitsTaken === 1, `blocks ${d.blocks}, hits ${d.hitsTaken}`);
+  await handsDown();
+  await untilD((x) => x.rivalBalls.every((b) => b === 'home'), 5000);
+
+  await duelDebug({ throwNow: 'low' });
+  const hpBefore = d.playerHp;
+  d = await untilD((x) => x.hitsTaken > 1, 6000);
+  check('a low throw lands on your body, for a fifth', d.hitsTaken === 2 && Math.abs(hpBefore - d.playerHp - 0.2) < 1e-6, `your health ${d.playerHp.toFixed(2)}`);
+  await untilD((x) => x.rivalBalls.every((b) => b === 'home'), 5000);
+
+  // Your turn: punch a ball at its head.
+  const AT_IT = { x: 0.12, y: 1.45, z: -0.4 };
+  const punchAtIt = async () => {
+    await place('hand-right', AT_IT);
+    await settle(900);
+    await pinch(1);
+    await settle(300);
+    await swing(true, AT_IT, 5);
+  };
+  for (let i = 0; i < 3 && d.hitsLanded === 0; i++) {
+    await punchAtIt();
+    d = await untilD((x) => x.hitsLanded > 0, 2500);
+    await home();
+    await pinch(1);
+    await settle(1200);
+    await pinch(0);
+  }
+  check('your ball lands on it', d.hitsLanded > 0 && d.rivalHp < 1, `${d.headHits} on the head of ${d.hitsLanded}, its health ${d.rivalHp.toFixed(2)}`);
+
+  // Meet its ball with yours, in the air, on its line.
+  {
+    const LINE = { x: -0.05, y: 1.5, z: -0.4 };
+    let tries = 0;
+    for (; tries < 3 && d.clashes === 0; tries++) {
+      await place('hand-right', LINE);
+      await settle(400);
+      await pinch(1);
+      await duelDebug({ throwNow: 'head' });
+      await untilD((x) => x.rivalBalls.includes('flying'), 4000);
+      await swing(true, LINE, 5);
+      d = await untilD((x) => x.clashes > 0 || !x.rivalBalls.includes('flying'), 3000);
+      await home();
+      await pinch(1);
+      await settle(1200);
+      await pinch(0);
+      await untilD((x) => x.rivalBalls.every((b) => b === 'home'), 5000);
+    }
+    check('your ball meets its ball in the air: both burn out', d.clashes > 0, `clashes ${d.clashes} in ${tries} tries · blocks ${d.blocks} · hits ${d.hitsTaken}`);
+  }
+  await duelDebug({ guard: true });
+  await settle(400);
+  d = await D();
+  const landed = d.hitsLanded;
+  for (let i = 0; i < 3 && d.rivalBlocks === 0; i++) {
+    await punchAtIt();
+    d = await untilD((x) => x.rivalBlocks > 0 || x.hitsLanded > landed, 2500);
+    await home();
+    await pinch(1);
+    await settle(1200);
+    await pinch(0);
+  }
+  check('its raised guard slaps your ball down', d.rivalBlocks > 0 && d.hitsLanded === landed, `guarded ${d.rivalBlocks}, landed ${d.hitsLanded - landed}`);
+  await duelDebug({ guard: false });
+
+  // Three rounds: you take one, it takes one, you take the match.
+  await duelDebug({ setRivalHp: 0 });
+  d = await untilD((x) => x.phase === 'roundOver', 3000);
+  check('knock it down: the round is yours', d.rounds[0] === 1 && d.rounds[1] === 0 && d.message === 'ROUND TO YOU', `${d.rounds.join('–')} · ${d.message}`);
+  d = await untilD((x) => x.phase === 'fight' && x.round === 2, 9000);
+  check('round 2, both at full health', d.round === 2 && d.playerHp === 1 && d.rivalHp === 1);
+  await duelDebug({ setPlayerHp: 0 });
+  d = await untilD((x) => x.phase === 'roundOver', 3000);
+  check('go down and the round is its', d.rounds[0] === 1 && d.rounds[1] === 1 && d.message === 'ROUND TO ROOKIE', `${d.rounds.join('–')} · ${d.message}`);
+  d = await untilD((x) => x.phase === 'fight' && x.round === 3, 9000);
+  await duelDebug({ setRivalHp: 0 });
+  d = await untilD((x) => x.phase === 'matchOver', 6000);
+  check('first to two takes the match', d.message === 'YOU WIN' && d.rounds[0] === 2, `${d.rounds.join('–')} · ${d.message}`);
+  m = await musicIs('victory', (tr) => tr === 'victory', 5000);
+  check('the victory sting plays', m.cue === 'victory' && m.track === 'victory', `${m.cue} · ${m.track}`);
+  d = await untilD((x) => x.phase === 'off', 8000);
+  await settle(700);
+  s = await S();
+  check(
+    'the console comes back on its results face',
+    s.mode === 'home' && d.result?.mode === 'duel' && d.result.won && d.result.rounds.join('–') === '2–1' && s.buttons.rematch.active,
+    JSON.stringify(d.result),
+  );
+  check('NEXT BOT is open: a rung up', !s.buttons.next.locked);
+  await poke('next');
+  d = await untilD((x) => x.phase !== 'off', 2000);
+  check('NEXT BOT brings the SPARRER in', d.label === 'SPARRER' && (await page.evaluate(() => window.__flux.rung())) === 1, d.label);
+  const loseMatch = async () => {
+    for (const round of [1, 2]) {
+      await untilD((x) => x.phase === 'fight' && x.round === round, 12000);
+      await duelDebug({ setPlayerHp: 0 });
+    }
+    await untilD((x) => x.phase === 'off', 12000);
+    await settle(700);
+  };
+  await loseMatch();
+  d = await D();
+  s = await S();
+  check('lose two rounds and it takes the match', s.mode === 'home' && d.result?.won === false && d.result.titan === 'SPARRER', JSON.stringify(d.result));
+  // The top of the ladder: nowhere further to climb.
+  await page.evaluate(() => window.__flux.rung(7));
+  await poke('rematch');
+  d = await untilD((x) => x.phase !== 'off', 2000);
+  check('REMATCH fights the rung you are on', d.label === 'OVERLORD', d.label);
+  await loseMatch();
+  s = await S();
+  check('and at the top rung NEXT BOT locks', s.buttons.next.locked);
+  await poke('next');
+  s = await S();
+  check('a locked card refuses', s.mode === 'home' && s.buttons.next.refusals === 1, `refusals ${s.buttons.next.refusals}`);
+  await settle(350);
+  await poke('home');
+  await page.evaluate(() => window.__flux.rung(0));
+  {
+    const log = (await SND()).log;
+    const need = ['count', 'bell', 'rivalHit', 'ko', 'hitTaken', 'block', 'win', 'lose', 'uiDenied'];
+    const missing = need.filter((n) => !log[n]);
+    check('the duel makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : need.join(' · '));
+  }
+  await duelDebug({ hold: false, still: false });
 
   // RECENTRE last: it moves the world, and every poke above assumes it hasn't.
   // ── RECENTRE, from off to one side and turned ──

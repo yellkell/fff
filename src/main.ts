@@ -16,6 +16,7 @@ import { AudioSystem } from './systems/AudioSystem.js';
 import { MusicSystem } from './systems/MusicSystem.js';
 import { BoundarySystem } from './systems/BoundarySystem.js';
 import { ConsoleSystem } from './systems/ConsoleSystem.js';
+import { duelDebug, duelStats, DuelSystem } from './systems/DuelSystem.js';
 import { ballPoses, ballStates, FireballSystem, releaseInfo } from './systems/FireballSystem.js';
 import { hands } from './input/hands.js';
 import { HandSystem } from './systems/HandSystem.js';
@@ -67,6 +68,7 @@ World.create(container, {
     .registerSystem(PokeSystem)
     .registerSystem(TargetSystem)
     .registerSystem(TitanSystem)
+    .registerSystem(DuelSystem)
     .registerSystem(VitalsSystem)
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
@@ -86,6 +88,9 @@ World.create(container, {
     mode: () => game.mode,
     titan: () => ({ ...titanStats, playerHp: game.playerHp, result: game.result }),
     titanDebug,
+    duel: () => ({ ...duelStats, playerHp: game.playerHp, result: game.result }),
+    duelDebug,
+    rung: (n?: number) => (n === undefined ? game.rung : (game.rung = n)),
     vitals: () => ({ ...vitalsStats }),
     sound: () => ({ state: audioState(), muted: isMuted(), gain: masterGain(), log: { ...sfxLog } }),
     music: musicState,

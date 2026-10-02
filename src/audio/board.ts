@@ -41,6 +41,16 @@ const GROUPS: { title: string; cues: Cue[] }[] = [
     ],
   },
   {
+    title: '1V1',
+    cues: [
+      { name: 'count', label: 'Count', what: 'the 3-2-1 before a round' },
+      { name: 'bell', label: 'Bell', what: 'the round starts' },
+      { name: 'rivalHit', label: 'Body hit', what: 'your ball lands on it', k: 0 },
+      { name: 'rivalHit', label: 'Head hit', what: 'a clean one, on the head', k: 1 },
+      { name: 'ko', label: 'Knockout', what: 'one of you is down' },
+    ],
+  },
+  {
     title: 'THE TITAN',
     cues: [
       { name: 'titanPrint', label: 'Print in', what: 'it builds in your room' },

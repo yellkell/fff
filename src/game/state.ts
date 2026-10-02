@@ -4,17 +4,21 @@
  *   home      the console is up; no fireballs, no targets.
  *   practice  the target rings; the console has sunk away.
  *   titans    a titan fight (TitanSystem).
- *
- * 1V1 joins this list when it's built.
+ *   duel      1V1 against the bot (DuelSystem).
  */
 
-export type Mode = 'home' | 'practice' | 'titans';
+export type Mode = 'home' | 'practice' | 'titans' | 'duel';
 
 export interface FightResult {
+  /** Which kind of fight it was: REMATCH and NEXT go back to the same kind. */
+  mode: 'titans' | 'duel';
+  /** Who you fought: a titan's name, or the bot's rung (ROOKIE…). */
   titan: string;
   won: boolean;
   /** Seconds the fight took. */
   time: number;
+  /** A duel's rounds, yours then theirs. */
+  rounds?: [number, number];
 }
 
 export const game = {
@@ -29,6 +33,8 @@ export const game = {
   headOutside: false,
   /** Which titan (TITANS index) the TITANS card and REMATCH fight. */
   titan: 0,
+  /** Which rung of the bot ladder (BOT_LADDER index) the 1V1 card fights. */
+  rung: 0,
   /** How the last fight ended; the console shows it until you move on. */
   result: null as FightResult | null,
 };

@@ -1,5 +1,5 @@
 /**
- * YOUR HEALTH, against a titan (FF2's arcade HUD, in neon): one small
+ * YOUR HEALTH, in a fight (FF2's arcade HUD, in neon): one small
  * segmented bar low in front of your pad, tilted up at your eyes, so a
  * glance down reads it and it never sits in the fight's line. The titan's
  * bar floats over its head; yours is here.
@@ -9,7 +9,7 @@
  *     moment and then drains, and the frame flashes red;
  *   - under 30% it all goes red and pulses with your heartbeat.
  *
- * It rises with the titan and sinks when the fight's over. Every light
+ * It rises with the titan (or the rival) and sinks when the fight's over. Every light
  * here fades by opacity (alpha), never to black: over passthrough a dark
  * light is a hole in your room.
  */
@@ -19,6 +19,7 @@ import { AdditiveBlending, Color, DoubleSide, Group, Mesh, MeshBasicMaterial, Sh
 import { NEON } from '../config.js';
 import { game } from '../game/state.js';
 import { FONT, frame, glass, glowText, LAYER, textPlane } from '../ui/kit.js';
+import { duelStats } from './DuelSystem.js';
 import { titanStats } from './TitanSystem.js';
 
 const SEGMENTS = 18;
@@ -103,7 +104,9 @@ export class VitalsSystem extends createSystem({}) {
 
   update(delta: number): void {
     this.t += delta;
-    const up = game.mode === 'titans' && (titanStats.phase === 'rising' || titanStats.phase === 'fight');
+    const up =
+      (game.mode === 'titans' && (titanStats.phase === 'rising' || titanStats.phase === 'fight')) ||
+      (game.mode === 'duel' && duelStats.phase !== 'off' && duelStats.phase !== 'outro');
     if (up && (this.rise === 0 || this.placedFor !== game.recentred)) this.place();
     this.rise = Math.min(1, Math.max(0, this.rise + (up ? delta : -delta) / 0.35));
     this.root.visible = this.rise > 0;

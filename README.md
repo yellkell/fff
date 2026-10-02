@@ -5,7 +5,7 @@ first**. A cut-down FIRE FIGHT ([`yellkell/ff2`](https://github.com/yellkell/ff2
 rebuilt for the headsets that ship without controllers. **Read
 [`DESIGN.md`](DESIGN.md)** for the whole plan and build order.
 
-## What's here now (build order steps 1–4, under way)
+## What's here now (build order steps 1–5, under way)
 
 - **Passthrough, hands required.** The session is `immersive-ar` with hand
   tracking *required*. There are no controllers in this game.
@@ -33,8 +33,7 @@ rebuilt for the headsets that ship without controllers. **Read
   your fingertip is even when the panel hides it, and a finger has to come
   at a button from the front to press it.
   - **THE CONSOLE** rises out of the floor at the front of your pad:
-    TITANS and 1V1 (locked until they're built) and PRACTICE. It sinks
-    away when you start.
+    TITANS, 1V1 and PRACTICE. It sinks away when you start.
   - **THE WRIST PANEL**: turn your left palm up and look at it. LEAVE
     goes back to the console; RECENTRE puts the pad under your feet,
     facing where you look.
@@ -150,7 +149,25 @@ rebuilt for the headsets that ship without controllers. **Read
   faded to black but still drawn was a black dot hanging in the room.
   Sparks and the platform's glow now fade their alpha with their light.
 
-All five titans fight. Next up: tune the gauntlet on a headset, then 1V1.
+- **1V1, against the bot** (`src/systems/DuelSystem.ts`, DESIGN §4.1).
+  Poke 1V1 and a neon boxer fades in on its own ember pad 3 m across from
+  yours, with two fireballs of its own. FIRE FIGHT 2's classic duel:
+  - first to **two rounds**, 60 s each, a 3-2-1 and a bell before every
+    one; at the bell's end the healthier one takes it;
+  - it winds a ball up round its glove (the tell), throws it at **you**
+    (25% on your head, 20% on your body) and recalls it. **Step, duck,**
+    put an **open palm** in its path, or knock it out of the air with a
+    ball orbiting your hand or flying home;
+  - your ball hurts it the same, on its head or body. It dodges, and it
+    raises a **guard** that slaps your ball down. Meet its ball with yours
+    in mid-air and both burn out;
+  - its brain is FF2's **bot ladder**, ROOKIE to OVERLORD. A rookie throws
+    slow at where you *were*; an overlord leads your head, punishes empty
+    hands, feints and double-taps. **NEXT BOT** on the results face climbs
+    a rung; a lower rung eases off while you trail on rounds.
+
+All five titans fight, and 1V1 is in against the bot. Next up: tune both
+on a headset, then 1V1 over the relay.
 
 ## Run it
 
@@ -169,6 +186,8 @@ switch the input mode to hands.
 npm run typecheck && npm run build
 npm run check:hands  # the hand-shape reader's laws, joint by joint (plain Node)
 npm run check:strike # the titans' reach and strike paths, and the grammar (plain Node)
+npm run check:duel   # the bot ladder and its mercy, the body a ball hits, the
+                     # bot's aim, and the dodge (plain Node)
 npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # pokes its way through every menu, plays the fireball
                      # loop, and fights RUSTHOOK (hit, dodge, palm block,
@@ -176,8 +195,11 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # then PISTONKAISER from NEXT TITAN (the piston chain,
                      # weak points taking turns), VULTURE (the volley),
                      # JUGGERNAUT (mortar, clap, ducking the sweeping beam)
-                     # and GOLIATH (the decree's gap, the enrage) with the
-                     # emulator's hands (-- --shots DIR: a picture of each)
+                     # and GOLIATH (the decree's gap, the enrage), then 1V1
+                     # (its throw dodged, palmed and taken, your ball on it,
+                     # the clash, its guard, three rounds to the results and
+                     # up the ladder) with the emulator's hands
+                     # (-- --shots DIR: a picture of each)
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)
 npm run check:sounds # needs `npm run dev`: every sound renders, audible and

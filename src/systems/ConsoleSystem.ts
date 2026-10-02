@@ -6,20 +6,21 @@
  *
  * Three cards, nothing else: TITANS, 1V1, PRACTICE. Each is a station in
  * THE CONSTELLATION later (DESIGN §6); the console is the solo version of
- * that room. Cards for modes that aren't built yet stay on the panel,
- * locked, and say so when poked, so the shape of the game is there from
+ * that room. A card for a mode that isn't built yet stays on the panel,
+ * locked, and says so when poked, so the shape of the game is there from
  * day one.
  *
  * After a fight it comes back up on its RESULTS face: who won and how
- * fast, then REMATCH, NEXT TITAN (locked until the next one is built) and
- * HOME, same three places as the cards you just used. NEXT TITAN moves the
- * TITANS card on too, so HOME then TITANS fights the one you got to.
+ * fast, then REMATCH, NEXT and HOME, same three places as the cards you
+ * just used. After a titan, NEXT TITAN (locked until the next one is
+ * built); after a duel, NEXT BOT, a rung up the ladder. Either moves its
+ * card on too, so HOME then the card fights the one you got to.
  */
 
 import { createSystem } from '@iwsdk/core';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import { sfx } from '../audio/sfx.js';
-import { CONSOLE, NEON } from '../config.js';
+import { BOT_LADDER, CONSOLE, NEON } from '../config.js';
 import { type FightResult, game, setMode } from '../game/state.js';
 import { playable } from '../titans/fights.js';
 import { TITANS } from '../titans/roster.js';
@@ -39,7 +40,9 @@ export class ConsoleSystem extends createSystem({}) {
   private title!: TextPlane;
   private readonly cards: PokeButton[] = [];
   private titansCard!: PokeButton;
+  private duelCard!: PokeButton;
   private nextCard!: PokeButton;
+  private rematchCard!: PokeButton;
   private readonly homeFace = new Group();
   private readonly resultFace = new Group();
   private shownResult: FightResult | null | undefined = undefined;
@@ -70,7 +73,7 @@ export class ConsoleSystem extends createSystem({}) {
     const gap = 0.02;
     const defs = [
       { id: 'titans', label: 'TITANS', sub: TITANS[0].name, accent: NEON.ember, locked: '' },
-      { id: '1v1', label: '1V1', sub: 'BOT · QUICK MATCH', accent: NEON.magenta, locked: '1V1 COMES AFTER THE TITANS' },
+      { id: '1v1', label: '1V1', sub: `BOT · ${BOT_LADDER[0].label}`, accent: NEON.magenta, locked: '' },
       { id: 'practice', label: 'PRACTICE', sub: 'TARGET RINGS', accent: NEON.lime, locked: '' },
     ];
     defs.forEach((d, i) => {
@@ -85,6 +88,7 @@ export class ConsoleSystem extends createSystem({}) {
           onPress: () => {
             if (d.id === 'practice') setMode('practice');
             if (d.id === 'titans') setMode('titans');
+            if (d.id === '1v1') setMode('duel');
           },
         }),
       );
@@ -96,28 +100,33 @@ export class ConsoleSystem extends createSystem({}) {
       this.homeFace.add(b.root);
       this.cards.push(b);
       if (d.id === 'titans') this.titansCard = b;
+      if (d.id === '1v1') this.duelCard = b;
     });
 
     // The results face: the same three places.
     const results = [
-      { id: 'rematch', label: 'REMATCH', sub: 'SAME TITAN', accent: NEON.ember, press: () => setMode('titans') },
+      { id: 'rematch', label: 'REMATCH', sub: '', accent: NEON.ember, press: () => setMode(game.result?.mode ?? 'titans') },
       {
         id: 'next',
         label: 'NEXT TITAN',
         sub: '',
         accent: NEON.magenta,
         press: () => {
-          game.titan++;
-          setMode('titans');
+          const mode = game.result?.mode ?? 'titans';
+          if (mode === 'duel') game.rung++;
+          else game.titan++;
+          setMode(mode);
         },
       },
       { id: 'home', label: 'HOME', sub: 'BACK TO THE CARDS', accent: NEON.cyan, press: () => (game.result = null) },
     ];
     results.forEach((d, i) => {
       const b = addButton(new PokeButton({ id: d.id, width: cardW, height: cardH, label: d.label, sub: d.sub, accent: d.accent, onPress: d.press }));
+      if (d.id === 'rematch') this.rematchCard = b;
       if (d.id === 'next') {
         this.nextCard = b;
         b.onLockedPress = () => {
+          if (game.result?.mode === 'duel') return this.setStatus('THAT WAS THE TOP RUNG', 2.5);
           const next = TITANS[game.titan + 1];
           this.setStatus(next ? `${next.name} IS STILL BEING BUILT` : 'THAT WAS THE LAST TITAN', 2.5);
         };
@@ -179,13 +188,22 @@ export class ConsoleSystem extends createSystem({}) {
   private showFace(r: FightResult | null): void {
     this.shownResult = r;
     const here = TITANS[game.titan];
-    const next = TITANS[game.titan + 1];
     this.titansCard.setText('TITANS', here?.name ?? TITANS[0].name);
-    this.nextCard.setText('NEXT TITAN', next?.name ?? 'NONE LEFT');
-    this.nextCard.setLocked(!playable(next?.name));
+    this.duelCard.setText('1V1', `BOT · ${BOT_LADDER[game.rung]?.label ?? BOT_LADDER[0].label}`);
+    if (r?.mode === 'duel') {
+      const next = BOT_LADDER[game.rung + 1];
+      this.rematchCard.setText('REMATCH', 'SAME BOT');
+      this.nextCard.setText('NEXT BOT', next?.label ?? 'TOP RUNG');
+      this.nextCard.setLocked(!next);
+    } else {
+      const next = TITANS[game.titan + 1];
+      this.rematchCard.setText('REMATCH', 'SAME TITAN');
+      this.nextCard.setText('NEXT TITAN', next?.name ?? 'NONE LEFT');
+      this.nextCard.setLocked(!playable(next?.name));
+    }
     this.homeFace.visible = !r;
     this.resultFace.visible = !!r;
-    const text = r ? `${r.titan} ${r.won ? 'FELLED' : 'WINS'}` : 'FIRE FIGHT FLUX';
+    const text = !r ? 'FIRE FIGHT FLUX' : r.mode === 'duel' ? (r.won ? `YOU BEAT ${r.titan}` : `${r.titan} WINS`) : `${r.titan} ${r.won ? 'FELLED' : 'WINS'}`;
     const color = r ? (r.won ? NEON.lime : NEON.danger) : NEON.magenta;
     this.title.draw((g, w, h) => {
       g.textAlign = 'center';
@@ -201,6 +219,10 @@ export class ConsoleSystem extends createSystem({}) {
     if (!r) return HINT;
     const m = Math.floor(r.time / 60);
     const sec = Math.floor(r.time % 60).toString().padStart(2, '0');
+    if (r.mode === 'duel') {
+      const [mine, theirs] = r.rounds ?? [0, 0];
+      return r.won ? `ROUNDS ${mine}–${theirs} IN ${m}:${sec}` : `ROUNDS ${mine}–${theirs} · GO AGAIN`;
+    }
     return r.won ? `DOWN IN ${m}:${sec}` : 'YOUR PAD WENT RED · GO AGAIN';
   }
 

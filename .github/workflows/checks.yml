@@ -1,8 +1,8 @@
 name: Checks
 
-# Typecheck, build, the hand-shape reader's laws, the headless smoke (the
-# emulator's hands poking the menus and playing the fireball loop), and the
-# neon titans.
+# Typecheck, build, the hand-shape reader's laws, the titans' and the duel's
+# laws, the headless smoke (the emulator's hands poking the menus, playing
+# the fireball loop, the titans and the duel), the neon titans and the sounds.
 
 on:
   push:
@@ -28,6 +28,8 @@ jobs:
         run: npm run check:hands
       - name: The titans' reach and strikes
         run: npm run check:strike
+      - name: The duel's laws — the bot ladder, the body, the throw, the dodge
+        run: npm run check:duel
       - run: npx playwright install --with-deps chromium
       - name: Start the dev server
         run: |

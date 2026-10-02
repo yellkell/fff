@@ -274,3 +274,136 @@ export const FIGHT = {
   sway: 0.14,
   bob: 0.025,
 };
+
+/* ── 1V1 ───────────────────────────────────────────────────────────────── */
+
+/**
+ * The duel (DESIGN §4), FIRE FIGHT 2's classic 1v1 with its rules: two pads
+ * across a gap, two balls each, first to two rounds. The bot comes first;
+ * the relay comes later and plugs into the same rival. Health is 0–1.
+ */
+export const DUEL = {
+  /** Pad centre to pad centre (FF2's ARENA_GAP): the rival stands here, facing you. */
+  gap: 3,
+  roundTime: 60,
+  /** First to this many rounds takes the match (FF2's quick match). */
+  winTarget: 2,
+  /** The rival materialises, then the 3-2-1 before every round. */
+  introTime: 1.6,
+  countdown: 3,
+  /** The breather after a round, and the hold on the final verdict. */
+  roundOverTime: 2.6,
+  matchOverTime: 2.8,
+  /** FF2's damage: 20 a hit, 25 on the head, out of 100. */
+  bodyDamage: 0.2,
+  headDamage: 0.25,
+  /** A ball meeting a raised guard or another ball in the air: the extra
+   *  contact reach on top of the two radii (FF2's deflectBonus). */
+  deflectBonus: 0.05,
+  /** Throws within ~25° of the rival are bent this much onto its head. */
+  aimAssist: 0.4,
+};
+
+/**
+ * A body for a duel: FF2's head-driven spine. Your hips are pinned under
+ * your head (a little behind it, since your face sits forward of your
+ * spine), so ducking and leaning swing the whole torso. Three spheres along
+ * it are what a ball hits. The rival is built from the same numbers.
+ */
+export const BODY = {
+  hipHeight: 0.95,
+  /** Hips never closer than this below the head (a deep duck, or sitting). */
+  hipBelowHead: 0.3,
+  /** Fraction along hips → neck where the chest sphere sits. */
+  chestAlong: 0.55,
+  spineSetBack: 0.16,
+  headRadius: 0.13,
+  chestRadius: 0.2,
+  pelvisRadius: 0.17,
+};
+
+/**
+ * The bot's fixed numbers (FF2's BOT): body, the guard, the beats every
+ * rank shares. What sharpens with rank is on BOT_LADDER.
+ */
+export const BOT = {
+  headY: 1.45,
+  headYMin: 1.0,
+  headYMax: 1.62,
+  /** Lateral roaming range on its pad (a row's `roam` scales it). */
+  padHalfWidth: 0.7,
+  headPitchMax: 0.32,
+  headTurnSpeed: 8,
+  blockHold: 0.55,
+  blockReach: 0.5,
+  decideEvery: 0.7,
+  lowAimDrop: 0.62,
+  dodgeBurst: 0.4,
+  dodgeBurstGain: 1.6,
+  feintHold: 0.5,
+  doubleTapGap: 0.3,
+  punishFuse: 0.12,
+  headLagWindow: 0.6,
+  /** Its glove, for the guard and the look. */
+  gloveRadius: 0.065,
+};
+
+/**
+ * THE BOT LADDER, FF2's verbatim: one brain per rung, ROOKIE to OVERLORD.
+ * Flux has no XP yet, so you climb it by hand: NEXT BOT on the results face
+ * takes you one rung up. What each number drives is in duel/brain.ts.
+ *
+ *  throwInterval / windup / throwSpeed / aimError : how it throws.
+ *  aimLag / lead : rookies throw at where your head WAS, veterans at where
+ *                  it's GOING.
+ *  lowAimChance / readsHabits : how often it throws low, bent toward a ducker.
+ *  reactDistance / reactDelay / defendChance / blockChance / wrongWayChance :
+ *                  how it answers your ball.
+ *  moveSpeed / duckSpeed / restless / roam : footwork.
+ *  preDodge / punish / feint / doubleTap : the tricks the sharper rungs earn.
+ *  recallDelay : seconds after a throw before it calls its ball back.
+ */
+export interface BotLadderRow {
+  label: string;
+  throwInterval: number;
+  windup: number;
+  throwSpeed: number;
+  aimError: number;
+  aimLag: number;
+  lead: number;
+  lowAimChance: number;
+  readsHabits: number;
+  reactDistance: number;
+  reactDelay: number;
+  defendChance: number;
+  blockChance: number;
+  wrongWayChance: number;
+  moveSpeed: number;
+  duckSpeed: number;
+  restless: number;
+  roam: number;
+  preDodge: number;
+  punish: number;
+  feint: number;
+  doubleTap: number;
+  recallDelay: number;
+}
+
+export const BOT_LADDER: BotLadderRow[] = [
+  { label: 'ROOKIE', throwInterval: 3.4, windup: 1.1, throwSpeed: 3.4, aimError: 0.36, aimLag: 0.4, lead: 0, lowAimChance: 0.2, readsHabits: 0, reactDistance: 1.0, reactDelay: 0.45, defendChance: 0.4, blockChance: 0.05, wrongWayChance: 0.3, moveSpeed: 0.9, duckSpeed: 1.4, restless: 0.5, roam: 0.35, preDodge: 0, punish: 0, feint: 0, doubleTap: 0, recallDelay: 2.0 },
+  { label: 'SPARRER', throwInterval: 3.0, windup: 0.95, throwSpeed: 3.8, aimError: 0.3, aimLag: 0.3, lead: 0.1, lowAimChance: 0.25, readsHabits: 0.1, reactDistance: 1.2, reactDelay: 0.35, defendChance: 0.55, blockChance: 0.1, wrongWayChance: 0.22, moveSpeed: 1.1, duckSpeed: 1.7, restless: 0.7, roam: 0.45, preDodge: 0.1, punish: 0, feint: 0, doubleTap: 0, recallDelay: 1.8 },
+  { label: 'CONTENDER', throwInterval: 2.5, windup: 0.8, throwSpeed: 4.2, aimError: 0.22, aimLag: 0.2, lead: 0.25, lowAimChance: 0.3, readsHabits: 0.25, reactDistance: 1.5, reactDelay: 0.25, defendChance: 0.7, blockChance: 0.2, wrongWayChance: 0.14, moveSpeed: 1.4, duckSpeed: 2.0, restless: 0.9, roam: 0.6, preDodge: 0.25, punish: 0.15, feint: 0, doubleTap: 0.05, recallDelay: 1.6 },
+  { label: 'BRUISER', throwInterval: 2.1, windup: 0.7, throwSpeed: 4.65, aimError: 0.15, aimLag: 0.12, lead: 0.4, lowAimChance: 0.38, readsHabits: 0.4, reactDistance: 1.7, reactDelay: 0.16, defendChance: 0.8, blockChance: 0.3, wrongWayChance: 0.08, moveSpeed: 1.6, duckSpeed: 2.3, restless: 1.0, roam: 0.75, preDodge: 0.4, punish: 0.3, feint: 0.08, doubleTap: 0.12, recallDelay: 1.4 },
+  { label: 'VETERAN', throwInterval: 1.85, windup: 0.62, throwSpeed: 4.9, aimError: 0.1, aimLag: 0.06, lead: 0.55, lowAimChance: 0.42, readsHabits: 0.55, reactDistance: 1.95, reactDelay: 0.1, defendChance: 0.88, blockChance: 0.36, wrongWayChance: 0.04, moveSpeed: 1.8, duckSpeed: 2.5, restless: 1.15, roam: 0.85, preDodge: 0.55, punish: 0.5, feint: 0.15, doubleTap: 0.22, recallDelay: 1.25 },
+  { label: 'ACE', throwInterval: 1.65, windup: 0.55, throwSpeed: 5.15, aimError: 0.07, aimLag: 0.03, lead: 0.7, lowAimChance: 0.45, readsHabits: 0.7, reactDistance: 2.2, reactDelay: 0.06, defendChance: 0.93, blockChance: 0.42, wrongWayChance: 0.02, moveSpeed: 2.0, duckSpeed: 2.7, restless: 1.3, roam: 0.92, preDodge: 0.68, punish: 0.65, feint: 0.22, doubleTap: 0.32, recallDelay: 1.1 },
+  { label: 'CHAMPION', throwInterval: 1.5, windup: 0.48, throwSpeed: 5.45, aimError: 0.05, aimLag: 0.01, lead: 0.82, lowAimChance: 0.45, readsHabits: 0.85, reactDistance: 2.45, reactDelay: 0.03, defendChance: 0.96, blockChance: 0.47, wrongWayChance: 0.01, moveSpeed: 2.15, duckSpeed: 2.85, restless: 1.45, roam: 0.97, preDodge: 0.78, punish: 0.8, feint: 0.3, doubleTap: 0.45, recallDelay: 1.0 },
+  { label: 'OVERLORD', throwInterval: 1.35, windup: 0.42, throwSpeed: 5.8, aimError: 0.03, aimLag: 0, lead: 0.92, lowAimChance: 0.45, readsHabits: 1.0, reactDistance: 2.7, reactDelay: 0.02, defendChance: 0.98, blockChance: 0.5, wrongWayChance: 0, moveSpeed: 2.3, duckSpeed: 3.0, restless: 1.6, roam: 1.0, preDodge: 0.85, punish: 0.9, feint: 0.35, doubleTap: 0.55, recallDelay: 0.9 },
+];
+
+/** MERCY (FF2's): each round you trail by softens the lower rungs a little. */
+export const BOT_MERCY = {
+  perRound: 0.07,
+  max: 0.2,
+  /** Rungs from here up get the bot they asked for. */
+  belowRung: 4,
+};
