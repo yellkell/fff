@@ -24,6 +24,8 @@ export type StrikePath =
   | 'sweep'
   | 'piston'
   | 'clap'
+  | 'spinback'
+  | 'spinhammer'
   | 'beam'
   | 'sweepbeam'
   | 'volley'
@@ -67,6 +69,10 @@ export function windupOffset(path: StrikePath, side: number, out: Vector3): Vect
       return out.set(side * 0.05, -0.38, 0.25); // drawn right back to the hip, a ram cocked
     case 'clap':
       return out.set(side * 0.65, 0.05, 0.1); // both arms thrown wide open, level
+    case 'spinback':
+      return out.set(side * -0.45, -0.15, -0.3); // folded across the chest, the back of the fist out
+    case 'spinhammer':
+      return out.set(side * -0.1, 0.5, 0.05); // raised high, over its head
     case 'beam':
     case 'sweepbeam':
     case 'volley':
@@ -122,6 +128,9 @@ export function strikePoint(
     case 'overhand':
       c.y += 0.6; // comes down on you from above
       break;
+    case 'spinback':
+    case 'spinhammer':
+      break; // the body's turn carries these (spinPoint); straight is the fallback
     case 'sweep': {
       // Level at your head, from its side, through you, out the far side:
       // a quadratic whose midpoint is exactly on you.
@@ -150,6 +159,66 @@ export function strikePoint(
 
 const _ab = new Vector3();
 const _ap = new Vector3();
+
+/**
+ * THE SPINNING BLOWS: the backfist and the hammerfist. The whole titan
+ * turns, the striking shoulder going back first, and keeps turning:
+ *
+ *   WINDUP   it turns its BACK on you (the tell: no other move does),
+ *            the fist folded across its chest, or raised high for a hammer;
+ *   STRIKE   the turn carries on round and the arm whips out, the fist on
+ *            a level arc about its own spine that ends on your head as its
+ *            striking shoulder comes round to face you (a hammer drops
+ *            onto you as it comes);
+ *   RECOVER  the turn finishes, a whole revolution, and it faces you again.
+ *
+ * Turn is in radians, 0 → 2π, of a turn whose sign is −side (the striking
+ * shoulder leads backwards).
+ */
+export const isSpin = (path: StrikePath): boolean => path === 'spinback' || path === 'spinhammer';
+
+export const SPIN = {
+  /** Turned this far round by the windup's end: its back to you. */
+  windup: 0.85 * Math.PI,
+  /** And this far when the fist lands: its striking shoulder toward you. */
+  contact: 1.5 * Math.PI,
+  /** A hammerfist starts its arc this far over your head (rig-free metres). */
+  lift: 0.7,
+};
+
+const smooth = (t: number): number => {
+  const u = Math.min(1, Math.max(0, t));
+  return u * u * (3 - 2 * u);
+};
+
+/**
+ * How far round a spinning blow has turned the titan, `u` (0–1) through
+ * `stage`. A recovery finishes the revolution from `from`, wherever the
+ * strike was cut off (a block stops the fist, not the body).
+ */
+export function spinTurn(stage: 'windup' | 'strike' | 'recover', u: number, from: number = SPIN.contact): number {
+  const t = Math.min(1, Math.max(0, u));
+  if (stage === 'windup') return SPIN.windup * smooth(t / 0.85);
+  if (stage === 'strike') return SPIN.windup + (SPIN.contact - SPIN.windup) * t;
+  return from + (2 * Math.PI - from) * smooth(t);
+}
+
+/**
+ * Where a spinning blow's fist is: your head (`to`, snapshotted) turned
+ * back round the titan's spine (the vertical through `axis`) by the turn
+ * still to come, `behind` radians about +y, so it rides the body round and
+ * lands exactly on you when `behind` reaches 0. A hammerfist also comes
+ * down from `SPIN.lift` over you as `t` (0–1) runs out.
+ */
+export function spinPoint(path: StrikePath, axis: Vector3, to: Vector3, behind: number, t: number, out: Vector3): Vector3 {
+  const dx = to.x - axis.x;
+  const dz = to.z - axis.z;
+  const c = Math.cos(behind);
+  const s = Math.sin(behind);
+  out.set(axis.x + c * dx + s * dz, to.y, axis.z - s * dx + c * dz);
+  if (path === 'spinhammer') out.y += SPIN.lift * (1 - smooth(t));
+  return out;
+}
 
 /** Distance from point `p` to the segment a→b. */
 export function segmentDistance(a: Vector3, b: Vector3, p: Vector3): number {

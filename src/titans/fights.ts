@@ -8,6 +8,9 @@
  * wide work (the hook, the sweep); the gauntlet the straight work (the
  * jab, the overhand); the eye fires the beam. Its weak points are both
  * open the whole fight (FF2's 'both'): the visor and the chest core.
+ * And the crane hook has a SPINNING BACKFIST: it turns its back on you,
+ * then comes all the way round, the hook on a level arc into your head
+ * (duck it, or step the way it's turning).
  *
  * PISTONKAISER, the foundry press, fights on a BEAT (FF2's march): its
  * signature is the PISTON, three straight hammer-block punches from
@@ -33,9 +36,12 @@
  * back, or block either fist); its SWEEPING BEAM locks your head's height
  * and scythes across the pad (duck under it). Three weak points in turn:
  * visor, core, then the LOW BLOW on its belt (FF2's 'triple'). 18 hits.
+ * The fortress turns on its base, too: a SPINNING HAMMERFIST, a whole
+ * revolution with one fist raised, brought down on you as it comes round.
  *
  * GOLIATH, the king, has learned it all: the clap, the piston, the
- * overhand, the volley from its pods, both beams; and his own DECREE
+ * overhand, the volley from its pods, both beams, both spinning blows;
+ * and his own DECREE
  * (decree.ts), a row of bolts over his crown with one gap in it, fired
  * across your pad at once. His weak points walk the CROWN circuit, five
  * stops (visor, left shoulder, core, right shoulder, low), three times
@@ -67,9 +73,10 @@ export const FIGHTS: Record<string, TitanFight> = {
       { path: 'hook', limb: 1, windup: 1.1, strike: 0.55, recover: 0.7, damage: 0.2 },
       { path: 'overhand', limb: 0, windup: 1.2, strike: 0.5, recover: 0.7, damage: 0.25 },
       { path: 'sweep', limb: 1, windup: 1.3, strike: 0.75, recover: 0.8, damage: 0.2 },
+      { path: 'spinback', limb: 1, windup: 1.3, strike: 0.45, recover: 0.7, damage: 0.22 },
       { path: 'beam', limb: 'eye', windup: 1.5, strike: 0.35, recover: 0.5, damage: 0.2 },
     ],
-    weights: { jab: 3, hook: 3, overhand: 2, sweep: 2, beam: 2 },
+    weights: { jab: 3, hook: 3, overhand: 2, sweep: 2, spinback: 2, beam: 2 },
     hits: 12,
     weak: 'both',
   },
@@ -105,9 +112,10 @@ export const FIGHTS: Record<string, TitanFight> = {
       { path: 'clap', limb: 'both', windup: 1.25, strike: 0.5, recover: 0.85, damage: 0.25 },
       { path: 'sweepbeam', limb: 'eye', windup: 1.5, strike: 0.9, recover: 0.6, damage: 0.2 },
       { path: 'overhand', limb: 0, windup: 1.3, strike: 0.5, recover: 0.9, damage: 0.3 },
+      { path: 'spinhammer', limb: 1, windup: 1.4, strike: 0.5, recover: 0.9, damage: 0.28 },
       { path: 'jab', limb: 1, windup: 0.85, strike: 0.42, recover: 0.6, damage: 0.15 },
     ],
-    weights: { mortar: 4, clap: 3, sweepbeam: 3, overhand: 2, jab: 2 },
+    weights: { mortar: 4, clap: 3, sweepbeam: 3, overhand: 2, spinhammer: 2, jab: 2 },
     hits: 18,
     weak: 'triple',
     gap: [0.7, 1.3],
@@ -117,16 +125,18 @@ export const FIGHTS: Record<string, TitanFight> = {
       { path: 'decree', limb: 'bolts', windup: 1.8, strike: 0.8, recover: 0.8, damage: 0.25 },
       { path: 'clap', limb: 'both', windup: 1.1, strike: 0.45, recover: 0.75, damage: 0.25 },
       { path: 'overhand', limb: 1, windup: 1.2, strike: 0.45, recover: 0.85, damage: 0.3 },
+      { path: 'spinback', limb: 0, windup: 1.2, strike: 0.42, recover: 0.7, damage: 0.22 },
+      { path: 'spinhammer', limb: 1, windup: 1.3, strike: 0.48, recover: 0.85, damage: 0.28 },
       { path: 'piston', limb: 0, windup: 0.95, strike: 0.3, recover: 0.2, damage: 0.1, combo: 3, beat: 0.48 },
       { path: 'sweepbeam', limb: 'eye', windup: 1.4, strike: 0.85, recover: 0.55, damage: 0.2 },
       { path: 'volley', limb: 'bolts', windup: 1.2, strike: 1.3, recover: 0.6, damage: 0.1, combo: 4, beat: 0.32 },
       { path: 'beam', limb: 'eye', windup: 1.3, strike: 0.35, recover: 0.5, damage: 0.2 },
     ],
-    weights: { decree: 2, clap: 2, overhand: 2, piston: 2, sweepbeam: 2, volley: 2, beam: 1 },
+    weights: { decree: 2, clap: 2, overhand: 2, spinback: 2, spinhammer: 1, piston: 2, sweepbeam: 2, volley: 2, beam: 1 },
     hits: 15,
     weak: 'crown',
     gap: [0.6, 1.1],
-    enrage: { at: 0.5, gap: [0.4, 0.85], weights: { decree: 4, piston: 3, clap: 3, volley: 3, sweepbeam: 2, overhand: 2, beam: 1 } },
+    enrage: { at: 0.5, gap: [0.4, 0.85], weights: { decree: 4, piston: 3, clap: 3, volley: 3, spinback: 2, spinhammer: 2, sweepbeam: 2, overhand: 2, beam: 1 } },
   },
 };
 

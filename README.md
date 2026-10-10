@@ -52,9 +52,11 @@ rebuilt for the headsets that ship without controllers. **Read
 - **RUSTHOOK fights** (`src/systems/TitanSystem.ts`, DESIGN §3.5). Poke
   TITANS and it prints into your room from the floor up, 2.2 m off your
   pad, and swings at *you*:
-  - five moves, each with a windup you learn to read: a **jab**, the crane
-    **hook**, an **overhand**, a level **sweep**, and an **eye beam** that
-    tracks you, locks, then fires;
+  - six moves, each with a windup you learn to read: a **jab**, the crane
+    **hook**, an **overhand**, a level **sweep**, a **spinning backfist**
+    (it turns its back on you, then comes all the way round, the hook on a
+    level arc into your head: duck, or step the way it's turning), and an
+    **eye beam** that tracks you, locks, then fires;
   - its arms really reach (`titans/ik.ts`): the elbow bends, the forearm
     telescopes out on a lit piston, and the whole machine lunges in;
   - every blow flies at where your head was when the windup ended:
@@ -83,7 +85,9 @@ rebuilt for the headsets that ship without controllers. **Read
 - **VULTURE fights** (DESIGN §3.7), next after PISTONKAISER:
   - its signature is the **volley**: its wings flare wide and three venom
     bolts leave the wingtips a beat apart, each at where your head is as
-    it leaves. Dodge them, or catch them on a palm or an orbiting ball;
+    it leaves. Dodge them, or catch them on a palm or an orbiting ball:
+    against anything a titan throws, your whole hand is a shield, so a
+    palm held up in front of your face covers it;
   - its one eye fires the beam more than any titan before it, and its
     talons hook, scythe and jab;
   - its weak points stay open for **two** hits before they swap. Sixteen
@@ -97,12 +101,14 @@ rebuilt for the headsets that ship without controllers. **Read
     head. Duck, step back, or block either fist;
   - the **sweeping beam**: its eye locks your head's *height*, then
     scythes level across the whole pad. Duck under it, or palm it;
+  - the **spinning hammerfist**: a whole turn on its base, one fist
+    raised, brought down on you as it comes round. Step off the line;
   - and a heavy overhand and a jab. Its weak points walk **visor → core →
     the low blow** on its belt, one hit each. Eighteen hits.
 
 - **GOLIATH fights** (DESIGN §3.10), the king, the last titan. He has
-  learned it all (clap, piston, overhand, a volley from his pods, both
-  beams) and has his own:
+  learned it all (clap, piston, overhand, both spinning blows, a volley
+  from his pods, both beams) and has his own:
   - the **decree**: a row of bolts gathers over his crown, one per lane
     across your pad, with a gap two lanes wide and a lime ring on your
     floor marking it. Then they all fire at once. Stand in the gap, duck,

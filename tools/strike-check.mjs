@@ -5,14 +5,15 @@
  * the fist lands on any target in reach, in any direction, whatever the
  * rig's conventions; out of reach it telescopes, then stops short on the
  * line; the elbow bends toward its pole; every strike path starts at the
- * windup and passes through your head; and the grammar never repeats a move.
+ * windup and passes through your head; a spinning blow turns its back on
+ * you, rides the turn in and lands on you; and the grammar never repeats a move.
  *
  *   npm run check:strike
  */
 
 import { Group, Vector3 } from 'three';
 import { reach } from '../src/titans/ik.ts';
-import { armsOf, lob, pickStrike, segmentDistance, strikePoint, windupOffset } from '../src/titans/strike.ts';
+import { armsOf, isSpin, lob, pickStrike, segmentDistance, SPIN, spinPoint, spinTurn, strikePoint, windupOffset } from '../src/titans/strike.ts';
 import { WeakCycle } from '../src/titans/weak.ts';
 import { DECREE, laneXs, planDecree } from '../src/titans/decree.ts';
 
@@ -113,6 +114,57 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   }
   const w = windupOffset('overhand', 1, new Vector3());
   check('the overhand winds up high', w.y > 0.3);
+}
+
+// The spinning blows: back to you for the tell, a whole revolution, and
+// the fist riding the turn in to land on you.
+{
+  check('the backfist and hammerfist spin; nothing else does', isSpin('spinback') && isSpin('spinhammer') && !isSpin('hook') && !isSpin('sweep'));
+  const at = (stage, u, from) => spinTurn(stage, u, from);
+  const seams = [
+    Math.abs(at('windup', 0) - 0),
+    Math.abs(at('windup', 1) - at('strike', 0)),
+    Math.abs(at('strike', 1) - SPIN.contact),
+    Math.abs(at('recover', 0) - SPIN.contact),
+    Math.abs(at('recover', 1) - 2 * Math.PI),
+  ];
+  check('its turn runs 0 → 2π with no jumps between stages', Math.max(...seams) < 1e-9);
+  const back = at('windup', 1);
+  check('by the windup’s end its back is to you', Math.abs(back - Math.PI) < 0.5, `${((back / Math.PI) * 180).toFixed(0)}°`);
+  const cut = at('recover', 1, 1.2 * Math.PI);
+  check('a blocked spin still finishes the revolution', Math.abs(cut - 2 * Math.PI) < 1e-9 && Math.abs(at('recover', 0, 1.2 * Math.PI) - 1.2 * Math.PI) < 1e-9);
+
+  // A titan at its stage spot, facing you, striking with its +x arm (side
+  // 1). The fist sits still in the titan's own frame (its arm locked out)
+  // and the body's turn carries it.
+  const axis = new Vector3(0, 0, -1.6);
+  const head = new Vector3(0.1, 1.6, 0);
+  for (const side of [-1, 1]) {
+    const local = [];
+    const pts = [];
+    for (let i = 0; i <= 100; i++) {
+      const u = i / 100;
+      const turn = spinTurn('strike', u);
+      const p = spinPoint('spinback', axis, head, side * (SPIN.contact - turn), u, new Vector3());
+      pts.push(p);
+      // Into the titan's frame: undo its whole yaw (π to face you, plus the spin).
+      const yaw = Math.PI - side * turn;
+      local.push(p.clone().sub(axis).applyAxisAngle(new Vector3(0, 1, 0), -yaw));
+    }
+    const drift = Math.max(...local.map((l) => l.distanceTo(local[0])));
+    check(`the backfist (arm ${side}) rides the turn, locked out in the titan's frame`, drift < 1e-9, `${(drift * 1000).toFixed(4)} mm`);
+    check(`and lands exactly on your head`, pts[100].distanceTo(head) < 1e-9);
+    check(`level all the way, at your head's height`, pts.every((p) => Math.abs(p.y - head.y) < 1e-9));
+    const r = Math.hypot(head.x - axis.x, head.z - axis.z);
+    check('on a circle about its spine', pts.every((p) => Math.abs(Math.hypot(p.x - axis.x, p.z - axis.z) - r) < 1e-9));
+    // It comes round from one side: the head-on line's far side, opposite
+    // the arm (in world x, with the titan facing +z, its +x arm is at −x).
+    check('coming in from the side', Math.sign(pts[80].x - head.x) === side && Math.abs(pts[80].x - head.x) > 0.2, `${(pts[80].x - head.x).toFixed(2)} m out at 80%`);
+  }
+  const h0 = spinPoint('spinhammer', axis, head, 0.3, 0, new Vector3());
+  const h1 = spinPoint('spinhammer', axis, head, 0, 1, new Vector3());
+  check('the hammerfist comes down on you from above', h0.y - head.y > 0.5 && h1.distanceTo(head) < 1e-9, `${(h0.y - head.y).toFixed(2)} m over you at the start`);
+  check('the backfist folds across the chest; the hammer winds up high', windupOffset('spinback', 1, new Vector3()).x < 0 && windupOffset('spinhammer', 1, new Vector3()).y > 0.3);
 }
 
 // The grammar.

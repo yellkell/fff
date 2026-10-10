@@ -14,7 +14,9 @@
  * fights is its entry in titans/fights.ts. What it can do:
  *
  *   FISTS    one arm, or both at once (a CLAP, meeting on your head), or a
- *            chain from alternating arms on a beat (a PISTON).
+ *            chain from alternating arms on a beat (a PISTON). A SPINNING
+ *            blow (a backfist, a hammerfist) turns the whole machine round,
+ *            its back to you for the tell, and the fist rides the turn in.
  *   BEAMS    from its eye: locked on your head, or locked at your head's
  *            HEIGHT and swept across the pad (duck under it).
  *   BOLTS    things it throws: a VOLLEY from wingtips or launcher pods, a
@@ -76,10 +78,14 @@ import { stageScale } from '../titans/stage.js';
 import {
   armsOf,
   isFist,
+  isSpin,
   lob,
   pickStrike,
   segmentDistance,
   segmentParam,
+  SPIN,
+  spinPoint,
+  spinTurn,
   type StrikeDef,
   type StrikePath,
   strikePoint,
@@ -140,6 +146,10 @@ interface Act {
   held: Bolt[];
   /** Every bolt it throws shares this, so a decree can only hit you once. */
   group: number;
+  /** A spinning blow: how far round it's turned (strike.ts spinTurn), and
+   *  where the turn stood when the strike ended, for the recovery. */
+  turn: number;
+  turnFrom: number;
 }
 
 /** Something thrown, in flight (or held, waiting to go). */
@@ -194,11 +204,12 @@ export const titanStats = {
   bolts: 0,
 };
 
-/** Test hooks for the headless checks: force a move, hold its fire, set its health. */
+/** Test hooks for the headless checks: force a move, hold its fire, set its health or yours. */
 export const titanDebug = {
   force: null as StrikePath | null,
   hold: false,
   setHp: null as number | null,
+  setPlayerHp: null as number | null,
 };
 
 const _v = new Vector3();
@@ -207,6 +218,7 @@ const _head = new Vector3();
 const _local = new Vector3();
 const _dir = new Vector3();
 const _far = new Vector3();
+const _cock = new Vector3();
 const _aim = new Vector3();
 const _prev = new Vector3();
 const _into = new Vector3();
@@ -225,6 +237,8 @@ const SWING: Record<StrikePath, number> = {
   sweep: 1,
   piston: 0.3,
   clap: 0.8,
+  spinback: 0.9,
+  spinhammer: 0.9,
   beam: 0,
   sweepbeam: 0,
   volley: 0,
@@ -247,6 +261,8 @@ export class TitanSystem extends createSystem({}) {
   private stagger = 0;
   private lunge = 0;
   private yaw = Math.PI;
+  /** A spinning blow's turn, on top of the yaw (radians about +y). */
+  private spin = 0;
   private t = 0;
   private phaseT = 0;
   private hp = 1;
@@ -442,6 +458,10 @@ export class TitanSystem extends createSystem({}) {
       titanDebug.setHp = null;
       if (this.hp <= 0 && this.phase === 'fight') this.enter('falling');
     }
+    if (titanDebug.setPlayerHp !== null) {
+      game.playerHp = titanDebug.setPlayerHp;
+      titanDebug.setPlayerHp = null;
+    }
     if (this.phase === 'fight') this.checkEnrage();
 
     switch (this.phase) {
@@ -532,6 +552,7 @@ export class TitanSystem extends createSystem({}) {
           sfx('swing', at, SWING[d.path]);
         }
         if (d.limb === 'eye') sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
+        if (isSpin(d.path)) this.chainVel += 3; // the turn flings the king's chain out
         if (d.path === 'decree') this.decreeFire(a);
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
@@ -570,6 +591,8 @@ export class TitanSystem extends createSystem({}) {
       plan: null,
       held: [],
       group: ++this.groups,
+      turn: 0,
+      turnFrom: 0,
     };
     // The tell, from where it's coming: your ears know which side.
     for (const sw of a.swings) sfx('windup', this.arms[sw.i].at, def.windup);
@@ -586,6 +609,7 @@ export class TitanSystem extends createSystem({}) {
   private toRecover(a: Act): void {
     a.stage = 'recover';
     a.t = 0;
+    a.turnFrom = a.turn;
     for (const sw of a.swings) sw.home.copy(this.arms[sw.i].at);
     this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = this.sweepLine.visible = false;
     this.rig!.eyeFx.visible = false;
@@ -637,9 +661,10 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  /** What in your hands stops something travelling from → to (game/guard.ts). */
-  private blocker(from: Vector3, to: Vector3, r: number, into: Vector3): Vector3 | null {
-    return guardStop(from, to, r, into);
+  /** What in your hands stops something travelling from → to (game/guard.ts).
+   *  Against a thing thrown, the whole hand is the shield. */
+  private blocker(from: Vector3, to: Vector3, r: number, into: Vector3, thrown = false): Vector3 | null {
+    return guardStop(from, to, r, into, thrown ? { palm: FIGHT.palmShield } : {});
   }
 
   private blocked(a: Act, at: Vector3): void {
@@ -870,9 +895,9 @@ export class TitanSystem extends createSystem({}) {
       b.pos.addScaledVector(b.vel, delta);
       b.obj.position.copy(b.pos);
       if (Math.random() < 0.8) fx.sparks?.burst(b.pos, 1, this.look.accent, 0.25);
-      // A palm blocks by facing into its travel.
+      // A palm blocks by facing into its travel, the whole hand a shield.
       _into.copy(b.vel).normalize().negate();
-      const stop = this.blocker(_prev, b.pos, b.radius, _into);
+      const stop = this.blocker(_prev, b.pos, b.radius, _into, true);
       if (stop) {
         titanStats.blocks++;
         fx.sparks?.burst(stop, 24, NEON.hot, 2);
@@ -1028,7 +1053,18 @@ export class TitanSystem extends createSystem({}) {
     root.position.set(sway * Math.cos(this.yaw) + fwdX * this.lunge, Math.sin(this.t * 1.4) * FIGHT.bob, -STAGE.distance + fwdZ * this.lunge);
     // Keep it off your pad whatever happens.
     root.position.z = Math.min(root.position.z, -1.15);
-    root.rotation.set(-0.18 * this.flinch - (this.stagger > 0 ? 0.08 : 0), this.yaw, 0);
+    // A spinning blow turns it right round on top of that, the striking
+    // shoulder going back first; anything left of a spin cut short (a fall)
+    // unwinds the short way.
+    if (a && isSpin(a.def.path) && a.swings.length) {
+      const u = a.t / (a.stage === 'windup' ? a.def.windup : a.stage === 'strike' ? a.def.strike : a.def.recover);
+      a.turn = spinTurn(a.stage, u, a.turnFrom);
+      this.spin = -this.arms[a.swings[0].i].side * a.turn;
+    } else {
+      this.spin = Math.atan2(Math.sin(this.spin), Math.cos(this.spin));
+      this.spin -= this.spin * Math.min(1, delta * 6);
+    }
+    root.rotation.set(-0.18 * this.flinch - (this.stagger > 0 ? 0.08 : 0), this.yaw + this.spin, 0);
     root.updateMatrixWorld(true);
 
     // The arms.
@@ -1140,6 +1176,13 @@ export class TitanSystem extends createSystem({}) {
       this.windupPoint(sw, d.path, out);
       return out.lerpVectors(guard, out, ease(a.t / (d.windup * 0.7)));
     }
+    if (a.stage === 'strike' && isSpin(d.path)) {
+      // Riding the turn round on an arc about its spine, landing on you as
+      // the turn reaches contact; the arm unfurls from the windup on the way.
+      const u = a.t / d.strike;
+      spinPoint(d.path, root.position, a.to, arm.side * (SPIN.contact - a.turn), u, out);
+      return out.lerpVectors(this.windupPoint(sw, d.path, _cock), out, ease(u / 0.4));
+    }
     if (a.stage === 'strike') {
       return strikePoint(d.path, sw.from, a.to, sw.outward, a.t / d.strike, out);
     }
@@ -1158,6 +1201,7 @@ export class TitanSystem extends createSystem({}) {
     rig.root.scale.setScalar(this.k);
     rig.root.position.set(0, 0, -STAGE.distance);
     this.yaw = Math.PI;
+    this.spin = 0;
     rig.root.rotation.set(0, this.yaw, 0);
     this.scene.add(rig.root);
     rig.root.updateMatrixWorld(true);

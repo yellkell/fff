@@ -18,16 +18,25 @@ import { segmentDistance } from '../titans/strike.js';
 /**
  * What stops something travelling from → to (radius r)? `into` is the way
  * a palm must face to block it: against its travel. `reach` is extra
- * contact distance for a ball meeting a ball. The point it stops at, or null.
+ * contact distance for a ball meeting a ball; `palm` is how far from its
+ * centre an open palm covers (FIGHT.palmShield against things thrown). The
+ * point it stops at, or null.
  */
-export function guardStop(from: Vector3, to: Vector3, r: number, into: Vector3, opts: { returning?: boolean; reach?: number } = {}): Vector3 | null {
+export function guardStop(
+  from: Vector3,
+  to: Vector3,
+  r: number,
+  into: Vector3,
+  opts: { returning?: boolean; reach?: number; palm?: number } = {},
+): Vector3 | null {
   const reach = opts.reach ?? 0;
+  const palm = opts.palm ?? FIGHT.palmReach;
   for (const side of SIDES) {
     const ball = orbitingBall(side) ?? (opts.returning ? returningBall(side) : null);
     if (ball && segmentDistance(from, to, ball) <= r + FIREBALL.radius + reach) return ball;
     const h = hands[side];
     if (!h.shape.tracked || h.shape.closed) continue;
-    if (segmentDistance(from, to, h.palm) > r + FIGHT.palmReach) continue;
+    if (segmentDistance(from, to, h.palm) > r + palm) continue;
     if (h.palmNormal.dot(into) >= FIGHT.palmFacing) return h.palm;
   }
   return null;
