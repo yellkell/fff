@@ -85,7 +85,9 @@ rebuilt for the headsets that ship without controllers. **Read
 - **VULTURE fights** (DESIGN §3.7), next after PISTONKAISER:
   - its signature is the **volley**: its wings flare wide and three venom
     bolts leave the wingtips a beat apart, each at where your head is as
-    it leaves. Dodge them, or catch them on a palm or an orbiting ball;
+    it leaves. Dodge them, or catch them on a palm or an orbiting ball:
+    against anything a titan throws, your whole hand is a shield, so a
+    palm held up in front of your face covers it;
   - its one eye fires the beam more than any titan before it, and its
     talons hook, scythe and jab;
   - its weak points stay open for **two** hits before they swap. Sixteen

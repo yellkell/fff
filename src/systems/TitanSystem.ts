@@ -661,9 +661,10 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  /** What in your hands stops something travelling from → to (game/guard.ts). */
-  private blocker(from: Vector3, to: Vector3, r: number, into: Vector3): Vector3 | null {
-    return guardStop(from, to, r, into);
+  /** What in your hands stops something travelling from → to (game/guard.ts).
+   *  Against a thing thrown, the whole hand is the shield. */
+  private blocker(from: Vector3, to: Vector3, r: number, into: Vector3, thrown = false): Vector3 | null {
+    return guardStop(from, to, r, into, thrown ? { palm: FIGHT.palmShield } : {});
   }
 
   private blocked(a: Act, at: Vector3): void {
@@ -894,9 +895,9 @@ export class TitanSystem extends createSystem({}) {
       b.pos.addScaledVector(b.vel, delta);
       b.obj.position.copy(b.pos);
       if (Math.random() < 0.8) fx.sparks?.burst(b.pos, 1, this.look.accent, 0.25);
-      // A palm blocks by facing into its travel.
+      // A palm blocks by facing into its travel, the whole hand a shield.
       _into.copy(b.vel).normalize().negate();
-      const stop = this.blocker(_prev, b.pos, b.radius, _into);
+      const stop = this.blocker(_prev, b.pos, b.radius, _into, true);
       if (stop) {
         titanStats.blocks++;
         fx.sparks?.burst(stop, 24, NEON.hot, 2);

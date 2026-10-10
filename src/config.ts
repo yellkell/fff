@@ -248,6 +248,12 @@ export const FIGHT = {
   /** An open palm facing the fist, this close to its path, blocks it. */
   palmReach: 0.09,
   palmFacing: 0.3,
+  /** Against anything THROWN (bolts, shells, the decree), the whole hand is
+   *  a shield: fingers and all, this far from the palm's centre. They're
+   *  small, fast, and come in steep from wingtips and pods well off to the
+   *  side, so a palm held up in front of your face has to cover your face
+   *  (a volley's bolts pass ~18 cm from it). */
+  palmShield: 0.16,
   /** The eye beam's radius. It locks this far through its windup. */
   beamRadius: 0.035,
   beamLock: 0.62,

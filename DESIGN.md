@@ -302,6 +302,14 @@ The executioner fights from range first.
   frame: a palm facing into its travel or an orbiting ball stops it (no
   stagger: it's a bolt, not the titan's arm); your head takes 10%. A
   volley on a titan with no wings throws from its shoulders.
+- **Against anything thrown, the whole hand is a shield** (every bolt,
+  shell and decree bolt, any titan): an open palm facing it blocks within
+  16 cm of its centre (`FIGHT.palmShield`), not the 9 cm a fist gets.
+  The wingtips are a metre out and a metre up, so a bolt comes in steep
+  and passes ~18 cm from a palm held up in front of your face: at 9 cm
+  your guard never caught one. Now one palm up a hand's width in front of
+  your face blocks a whole volley, a mortar, and your lane of a decree
+  (all checked in the smoke run); a hand anywhere else still doesn't.
 - Its one eye fires the **beam** (weighted 3, the most so far), and its
   talons **sweep**, **hook** and **jab**. Gaps 0.6–1.1 s.
 - **Weak points open for two hits** (FF2's `'double'`), the core first.

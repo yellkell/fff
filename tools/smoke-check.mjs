@@ -14,9 +14,10 @@
  * the console back on its results face. NEXT TITAN then walks the whole
  * gauntlet: PISTONKAISER's piston chain and turn-taking weak points,
  * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
- * under, then taken standing) and spinning hammerfist, and GOLIATH's decree (dodged in its gap,
- * then taken in a lane) and his enrage. Then 1V1: the ROOKIE fades in,
- * counts you down and rings the bell; its ball lands on a still head,
+ * under, then taken standing) and spinning hammerfist, and GOLIATH's decree
+ * (dodged in its gap, taken in a lane, then blocked there) and his enrage;
+ * a palm held up in front of your face blocks every volley bolt and shell.
+ * Then 1V1: the ROOKIE fades in, counts you down and rings the bell; its ball lands on a still head,
  * misses one that steps aside after the release, is knocked out of the air
  * by an open palm, and finds your hips when thrown low; your ball lands on
  * it, meets its ball in the air, and is slapped down by its raised guard;
@@ -367,6 +368,16 @@ if (offered) {
   await place('hand-left', { x: lt.position.x + want[0] - pl.palm[0], y: lt.position.y + want[1] - pl.palm[1], z: lt.position.z + want[2] - pl.palm[2] }, PALM_OUT);
   await settle(150);
   const pn2 = (await page.evaluate(() => window.__flux.hands().left.palmNormal));
+  // Your guard up: an open palm, facing out, a hand's width in front of
+  // your face (where it is after the hand rig's own offsets, corrected).
+  const guardUp = async () => {
+    await place('hand-left', { x: 0, y: 1.5, z: -0.3 }, PALM_OUT);
+    await settle(150);
+    const at = (await page.evaluate(() => window.__flux.hands().left)).palm;
+    const tr = await page.evaluate(() => window.IWER_DEVICE.remote.dispatch('get_transform', { device: 'hand-left' }));
+    await place('hand-left', { x: tr.position.x - at[0], y: tr.position.y + 1.55 - at[1], z: tr.position.z - 0.28 - at[2] }, PALM_OUT);
+    await settle(150);
+  };
   await debug({ force: 'jab' });
   t = await until((x) => x.act === null && x.blocks > 0, 10000);
   check('an open palm in its path blocks the jab', t.blocks === 1 && t.hitsTaken === 1, `palm facing z ${pn2[2].toFixed(2)}, blocks ${t.blocks}, hits ${t.hitsTaken}`);
@@ -510,6 +521,16 @@ if (offered) {
     await settle(900); // the last bolt's flight
     t = await T();
     check('the VOLLEY throws three bolts from its wingtips, all landing on a head that stays put', t.bolts === 3 && t.hitsTaken - before === 3, `bolts ${t.bolts}, hits ${t.hitsTaken - before}`);
+    // Guard up: one palm in front of your face catches bolts from either wingtip.
+    await debug({ setPlayerHp: 1 });
+    await guardUp();
+    const pre = await T();
+    await debug({ force: 'volley' });
+    t = await until((x) => x.bolts >= pre.bolts + 3 && x.act === null, 10000);
+    await settle(900);
+    t = await T();
+    check('a palm held up in front of your face blocks all three bolts', t.blocks - pre.blocks === 3 && t.hitsTaken === pre.hitsTaken, `blocks ${t.blocks - pre.blocks}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
   }
   {
     // 'double': a hit on the open core leaves it open; the second shuts it.
@@ -548,6 +569,19 @@ if (offered) {
     await settle(1300); // the last shell's flight
     t = await T();
     check('the MORTAR lobs four shells onto a head that stays put', t.bolts === 4 && t.hitsTaken - before === 4, `shells ${t.bolts}, hits ${t.hitsTaken - before}`);
+    // Guard up: the same palm catches shells coming down on you.
+    await debug({ setPlayerHp: 1 });
+    await guardUp();
+    {
+      const pre = await T();
+      await debug({ force: 'mortar' });
+      t = await until((x) => x.bolts >= pre.bolts + 4 && x.act === null, 10000);
+      await settle(1300);
+      t = await T();
+      check('a palm held up in front of your face blocks all four shells', t.blocks - pre.blocks === 4 && t.hitsTaken === pre.hitsTaken, `blocks ${t.blocks - pre.blocks}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    }
+    await handsDown();
+    await debug({ setPlayerHp: 1 });
     before = t.hitsTaken;
     await debug({ force: 'clap' });
     if (shotDir) await until((x) => x.act?.stage === 'windup' && false, 900), await shot('juggernaut-clap-windup');
@@ -614,6 +648,15 @@ if (offered) {
     await settle(700);
     t = await T();
     check('standing in a lane, it lands, once', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    // In a lane with your guard up: your lane's bolt meets your palm.
+    await guardUp();
+    const pre = await T();
+    await debug({ force: 'decree' });
+    t = await until((x) => x.act === null, 10000);
+    await settle(700);
+    t = await T();
+    check('in a lane with a palm up, it blocks your lane’s bolt', t.blocks > pre.blocks && t.hitsTaken === pre.hitsTaken, `blocks ${t.blocks - pre.blocks}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
   }
   await debug({ setHp: 0.45 });
   t = await until((x) => x.enraged, 3000);
