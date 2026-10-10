@@ -9,11 +9,12 @@
  * a palm turned up and looked at opens the WRIST PANEL, whose LEAVE goes
  * home. Then TITANS: RUSTHOOK prints in; a jab lands on a still head,
  * misses one that steps aside after the windup, and bounces off an open
- * palm; the eye beam lands; a thrown ball hits it; and felling it brings
+ * palm; the eye beam lands; its spinning backfist lands, then misses a
+ * ducked head; a thrown ball hits it; and felling it brings
  * the console back on its results face. NEXT TITAN then walks the whole
  * gauntlet: PISTONKAISER's piston chain and turn-taking weak points,
  * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
- * under, then taken standing), and GOLIATH's decree (dodged in its gap,
+ * under, then taken standing) and spinning hammerfist, and GOLIATH's decree (dodged in its gap,
  * then taken in a lane) and his enrage. Then 1V1: the ROOKIE fades in,
  * counts you down and rings the bell; its ball lands on a still head,
  * misses one that steps aside after the release, is knocked out of the air
@@ -376,6 +377,27 @@ if (offered) {
   await debug({ force: 'beam' });
   t = await until((x) => x.act === null && x.hitsTaken > 1, 10000);
   check('the eye beam lands on a head that stays put', t.hitsTaken === 2, `hits taken ${t.hitsTaken}`);
+  await until((x) => x.act === null);
+
+  // The spinning backfist: its back to you for the tell, then all the way
+  // round, the hook on a level arc into your head. Duck it.
+  {
+    const before = t.hitsTaken;
+    await debug({ force: 'spinback' });
+    if (shotDir) await until((x) => x.act?.stage === 'windup' && false, 1100), await shot('rusthook-spinback-windup');
+    t = await until((x) => x.act === null && x.hitsTaken > before, 10000);
+    check('the SPINNING BACKFIST comes all the way round onto a head that stays put', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await until((x) => x.act === null);
+    await debug({ force: 'spinback' });
+    await until((x) => x.act?.stage === 'strike', 10000);
+    await place('headset', { x: 0, y: 1.15, z: 0 });
+    t = await until((x) => x.act === null || x.act.stage === 'recover', 5000);
+    await settle(200);
+    t = await T();
+    check('ducking under the SPINNING BACKFIST makes it miss', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await place('headset', { x: 0, y: 1.6, z: 0 });
+    await until((x) => x.act === null);
+  }
 
   // Your turn: light the right ball and punch it at the titan's core, a
   // ball or three till one finds a weak point (a hand-thrown ball can clip
@@ -547,6 +569,15 @@ if (offered) {
     await debug({ force: 'sweepbeam' });
     t = await until((x) => x.act === null && x.hitsTaken > before, 10000);
     check('standing tall, it scythes through you', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await until((x) => x.act === null);
+    // The spinning hammerfist, on fresh health: a whole turn, one fist
+    // raised, brought down on you as it comes round.
+    await debug({ setPlayerHp: 1 });
+    before = t.hitsTaken;
+    await debug({ force: 'spinhammer' });
+    if (shotDir) await until((x) => x.act?.stage === 'strike', 10000), await shot('juggernaut-spinhammer');
+    t = await until((x) => x.act === null && x.hitsTaken > before, 10000);
+    check('the SPINNING HAMMERFIST comes round and down onto a head that stays put', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
     await until((x) => x.act === null);
   }
   await debug({ setHp: 0 });

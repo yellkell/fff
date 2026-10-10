@@ -349,8 +349,10 @@ back off from the clap.
   the pad; then it scythes from one side to the other (1.1 m either way)
   over 0.9 s. Stepping doesn't help: duck under it, or catch it on a palm
   (parried: it stops there, and the titan staggers). 20%.
+- **The spinning hammerfist** (§3.12): a whole turn on its base, one fist
+  raised high, brought down on you as it comes round. 1.4 s windup, 28%.
 - Also the overhand (30%) and the jab. Weighted mortar 4, clap 3, sweep 3,
-  overhand 2, jab 2; gaps 0.7–1.3 s.
+  overhand 2, spinning hammerfist 2, jab 2; gaps 0.7–1.3 s.
 - **Weak points walk visor → core → low** (FF2's `'triple'`), one hit
   each: the low blow is the lamp on its belt. 18 hits.
 
@@ -367,15 +369,16 @@ The king, the last titan: he has learned it all, and teaches.
   pair, and leaves a 32 cm band a head fits through (all checked). Duck,
   stand in the gap, or block your lane's bolt. It can only hit you once,
   25%.
-- Everything else he's learned: the clap, the piston, the overhand, a
-  four-bolt volley from his pods, the sweeping beam and the beam. Weighted
-  decree 2 and the rest 2 (the beam 1); gaps 0.6–1.1 s.
+- Everything else he's learned: the clap, the piston, the overhand, both
+  spinning blows (§3.12), a four-bolt volley from his pods, the sweeping
+  beam and the beam. Weighted decree 2 and the rest 2 (the hammerfist and
+  the beam 1); gaps 0.6–1.1 s.
 - **The crown** (FF2's): visor → left shoulder → core → right shoulder →
   low, one hit each, three times round: 15 hits. The shoulder lamps are
   bigger on the king, so they read as targets.
 - **Enrage at half health** (`TitanFight.enrage`): he stops to roar, every
   lit edge burns 70% brighter and his weak points blink faster; then gaps
-  of 0.4–0.85 s and decree 4, piston 3, clap 3, volley 3. The windups are
+  of 0.4–0.85 s and decree 4, piston 3, clap 3, volley 3, both spins 2. The windups are
   untouched: escalation closes the gaps, never the tells.
 - **The chain of office** (`rig.chain`): every link is DRAWN (its outline
   rides the geometry as `loops`, and the neon finish lays one lit oval per
@@ -410,6 +413,34 @@ Flux does the same, in neon (`systems/VitalsSystem.ts`).
   your face.
 
 ---
+
+### 3.12 The spinning blows
+
+RUSTHOOK, JUGGERNAUT and GOLIATH spin (`titans/strike.ts` `spinTurn`,
+`spinPoint`). A spinning blow turns the WHOLE titan one revolution on its
+spot, the striking shoulder going back first:
+
+- **Windup:** it turns its back on you (0.85 of a half-turn), the fist
+  folded across its chest for a backfist or raised high for a hammerfist.
+  No other move shows you its back: that's the tell. Its weak points face
+  away while it does.
+- **Strike:** the turn carries on round and the arm whips out. The fist is
+  locked out in the titan's own frame and rides the body's turn on a level
+  arc about its spine, landing on your snapped head as its striking
+  shoulder comes round to face you (¾ of the way round). It comes in from
+  the side, so **duck it, or step the way it's turning** (toward it, you
+  meet it early). The hammerfist also drops on you from 0.7 m over your
+  head as it comes, so ducking alone doesn't clear it: step.
+- **Recover:** the turn finishes the revolution and it faces you again; a
+  block stops the fist, not the body, which finishes its turn staggered.
+- The lunge still follows the yaw, not the spin, so it steps in at you,
+  never sideways. GOLIATH's chain is flung out by the turn.
+- **RUSTHOOK's** spinning backfist is the crane hook: 1.3 s windup, 22%.
+  **JUGGERNAUT's** hammerfist: 1.4 s, 28%. **GOLIATH** has both (1.2 s
+  and 1.3 s).
+- **Open, to tune on a headset:** whether ¾ of a turn on a 0.45 s strike
+  is fair to read from 2.2 m, and how VULTURE's 3 m wings would look
+  spinning in a real room (it doesn't spin yet).
 
 ## 4 · 1v1 — the second mode
 
