@@ -148,7 +148,10 @@ rebuilt for the headsets that ship without controllers. **Read
   titan fight, the victory sting when one falls to you). Every track is
   loudness-matched as it loads, so none jumps out over the fight.
 - The wrist panel is now two by two: **LEAVE** and **RECENTRE**, then
-  **SOUND** and **MUSIC**, each on and off, remembered.
+  **SOUND** and **MUSIC**, each on and off, remembered. If the headset's
+  browser has parked the sound, SOUND reads **NO SOUND · PINCH TO WAKE
+  IT**: every pinch is a gesture the browser accepts, and the game keeps
+  asking for the sound back on its own too.
 
 - **Sparks that fade to clear.** Over passthrough, a frame's *alpha* is
   what hides your room, and additive light still writes it: a spark
@@ -171,6 +174,27 @@ rebuilt for the headsets that ship without controllers. **Read
     slow at where you *were*; an overlord leads your head, punishes empty
     hands, feints and double-taps. **NEXT BOT** on the results face climbs
     a rung; a lower rung eases off while you trail on rounds.
+
+- **The career: a belt at every step** (`src/game/career.ts`, DESIGN
+  §3.13). TITANS always fights your next bout, and a banner hangs between
+  you and the titan as it prints in: the bout, what's at stake, who:
+  1. the **AMATEUR BOUT** against RUSTHOOK, for the amateur belt;
+  2. the **NATIONAL CHAMPIONSHIP** against PISTONKAISER;
+  3. the **INTERCONTINENTAL TITLE** against VULTURE;
+  4. your first **TITLE DEFENCE**, against JUGGERNAUT, your intercontinental
+     belt on the line: lose and it's stripped, and the rematch is to win
+     it back;
+  5. the **WORLD CHAMPIONSHIP** against GOLIATH;
+  6. then **WORLD TITLE DEFENCES** against GOLIATH, for as long as you can
+     hold it, every one counted. It's a rematch and he's learned new
+     tricks: the **Whirlwind** (his spinning backfist twice, one from each
+     arm), the **Double Decree** (a second row as the first fires, its gap
+     somewhere new), and the **Orb of State**, which hunts your head until
+     you shoot it down with a fireball, palm it, or step late. Twenty hits.
+
+  Your belts hang on a rack over the console: lit if they're yours, a
+  ghost if not yet, red if stripped. Win one and it comes off the rack and
+  is held up over the console to a fanfare. Your career is saved.
 
 All five titans fight, and 1V1 is in against the bot. Next up: tune both
 on a headset, then 1V1 over the relay.

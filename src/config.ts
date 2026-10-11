@@ -270,6 +270,13 @@ export const FIGHT = {
   shellRadius: 0.09,
   /** The decree's bolts fly this fast. */
   decreeSpeed: 4,
+  /** GOLIATH's orb of state: slow, hunting your head (it turns toward you
+   *  this fast, rad/s, so a late sidestep still beats it), this big, and
+   *  this long before it burns out. Shoot it down, palm it, or step. */
+  orbSpeed: 1.5,
+  orbTurn: 1.5,
+  orbRadius: 0.1,
+  orbLife: 4.5,
   /** The sweeping beam scythes this far either side of where it locked. */
   sweepReach: 1.1,
   /** A weak-point hit freezes the titan this long: the blow lands. */

@@ -18,7 +18,7 @@ import { createSystem } from '@iwsdk/core';
 import { Group, Vector3 } from 'three';
 import { NEON, WRIST } from '../config.js';
 import { isMusicMuted, setMusicMuted } from '../audio/music.js';
-import { isMuted, setMuted, sfx } from '../audio/sfx.js';
+import { audioState, isMuted, setMuted, sfx } from '../audio/sfx.js';
 import { recentre } from '../game/recentre.js';
 import { game, setMode } from '../game/state.js';
 import { hands } from '../input/hands.js';
@@ -121,6 +121,9 @@ export class WristSystem extends createSystem({}) {
   }
 
   update(delta: number): void {
+    // Say so if the browser has the sound parked: a pinch brings it back.
+    const stuck = !isMuted() && audioState() !== 'running';
+    this.sound.setText(isMuted() ? 'SOUND OFF' : stuck ? 'NO SOUND' : 'SOUND ON', stuck ? 'PINCH TO WAKE IT' : 'POKE TO SWITCH');
     const h = hands.left;
     this.camera.getWorldPosition(_head);
     this.camera.getWorldDirection(_gaze);

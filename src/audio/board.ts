@@ -79,6 +79,8 @@ const GROUPS: { title: string; cues: Cue[] }[] = [
       { name: 'titanFall', label: 'Un-print', what: 'the fight ends' },
       { name: 'win', label: 'Win', what: 'it’s down' },
       { name: 'lose', label: 'Lose', what: 'your pad went red' },
+      { name: 'belt', label: 'Belt', what: 'a title won, held up' },
+      { name: 'beltLost', label: 'Belt lost', what: 'a defence lost: stripped' },
     ],
   },
 ];

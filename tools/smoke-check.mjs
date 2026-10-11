@@ -11,11 +11,13 @@
  * misses one that steps aside after the windup, and bounces off an open
  * palm; the eye beam lands; its spinning backfist lands, then misses a
  * ducked head; a thrown ball hits it; and felling it brings
- * the console back on its results face. NEXT TITAN then walks the whole
- * gauntlet: PISTONKAISER's piston chain and turn-taking weak points,
+ * the console back on its results face. NEXT FIGHT then walks the whole
+ * career, a belt at every step (the banner, the award, the defence): PISTONKAISER's piston chain and turn-taking weak points,
  * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
  * under, then taken standing) and spinning hammerfist, and GOLIATH's decree
- * (dodged in its gap, taken in a lane, then blocked there) and his enrage;
+ * (dodged in its gap, taken in a lane, then blocked there) and his enrage,
+ * the world title won, a defence lost and won back in his rematch (the
+ * whirlwind, the double decree, and the orb: taken, palmed, shot down);
  * a palm held up in front of your face blocks every volley bolt and shell.
  * Then 1V1: the ROOKIE fades in, counts you down and rings the bell; its ball lands on a still head,
  * misses one that steps aside after the release, is knocked out of the air
@@ -164,21 +166,22 @@ if (offered) {
    *  a pinch opening over several frames, and a hand that's already
    *  stopped by the time it reads as open is (rightly) a drop, not a throw. */
   const HOME = { x: 0.25, y: 1.5, z: -0.4 };
-  const swing = (release, from = HOME, speed = 3.5, secs = 0.36) =>
+  const swing = (release, from = HOME, speed = 3.5, secs = 0.36, dir = { x: 0, y: 0, z: -1 }) =>
     page.evaluate(
-      async ({ release, from, speed, secs }) => {
+      async ({ release, from, speed, secs, dir }) => {
         const d = window.IWER_DEVICE;
         const t0 = performance.now();
         for (;;) {
           const t = Math.min(secs, (performance.now() - t0) / 1000);
-          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { ...from, z: from.z - speed * t } });
+          const k = speed * t;
+          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { x: from.x + dir.x * k, y: from.y + dir.y * k, z: from.z + dir.z * k } });
           if (release && t >= secs / 2) d.hands.right.updatePinchValue(0);
           await new Promise(requestAnimationFrame);
           if (t >= secs) break;
         }
         for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame);
       },
-      { release, from, speed, secs },
+      { release, from, speed, secs, dir },
     );
   const home = () => place('hand-right', HOME);
   /** Chest height, centre-right: a straight punch from here is on the core. */
@@ -209,6 +212,15 @@ if (offered) {
   await page.evaluate(() => localStorage.removeItem('flux-sound'));
   const snd0 = await SND();
   check('sound starts with the Enter press', snd0.state === 'running', snd0.state);
+  {
+    // A headset browser can park the sound on the way into the session,
+    // and there are no taps in there: it has to come back on its own.
+    await page.evaluate(() => window.__flux.parkAudio());
+    const parked = (await SND()).state;
+    await page.waitForTimeout(1200);
+    const back = (await SND()).state;
+    check('parked sound comes back by itself', parked === 'suspended' && back === 'running', `${parked} → ${back}`);
+  }
   const MUS = () => page.evaluate(() => window.__flux.music());
   const musicIs = async (cue, track, ms = 12000) => {
     const end = Date.now() + ms;
@@ -333,6 +345,10 @@ if (offered) {
   await poke('titans');
   let t = await T();
   check('poking TITANS starts the fight', (await S()).mode === 'titans' && (t.phase === 'rising' || t.phase === 'fight'), t.phase);
+  const C = () => page.evaluate(() => window.__flux.career());
+  let c = await C();
+  check('your career starts with the AMATEUR BOUT, its banner up, for the amateur belt', c.next === 0 && c.held.length === 0 && c.bout.shown && c.bout.title === 'AMATEUR BOUT' && c.bout.belt === 'amateur', JSON.stringify(c.bout));
+  if (shotDir) await settle(900), await shot('bout-banner');
   await handsDown();
   t = await until((x) => x.phase === 'fight');
   check('RUSTHOOK prints into the room', t.phase === 'fight');
@@ -452,13 +468,16 @@ if (offered) {
   s = await S();
   t = await T();
   check('the console comes back on its results face', s.mode === 'home' && t.result?.won === true && s.buttons.rematch.active, JSON.stringify(t.result));
+  c = await C();
+  check('the AMATEUR belt is yours, and the national championship is next', t.result?.outcome?.won === 'amateur' && c.held.join() === 'amateur' && c.next === 1, JSON.stringify(c));
+  if (shotDir) await settle(1200), await shot('belt-award');
 
-  // ── PISTONKAISER, from NEXT TITAN ──
-  check('NEXT TITAN is open now PISTONKAISER is built', !s.buttons.next.locked);
+  // ── PISTONKAISER, the national championship, from NEXT FIGHT ──
+  check('NEXT FIGHT is open now PISTONKAISER is built', !s.buttons.next.locked);
   await poke('next');
   await handsDown();
   t = await until((x) => x.phase === 'fight');
-  check('NEXT TITAN prints PISTONKAISER in', t.name === 'PISTONKAISER' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('NEXT FIGHT prints PISTONKAISER in', t.name === 'PISTONKAISER' && t.phase === 'fight', `${t.name} · ${t.phase}`);
   check('its weak points take turns: the core opens first', t.open === 'core', t.open);
   {
     const before = t.hitsTaken;
@@ -507,12 +526,12 @@ if (offered) {
   t = await T();
   check('PISTONKAISER falls to the results face', s.mode === 'home' && t.result?.titan === 'PISTONKAISER' && t.result?.won === true, JSON.stringify(t.result));
 
-  // ── VULTURE, from NEXT TITAN again ──
-  check('NEXT TITAN is open again for VULTURE', !s.buttons.next.locked);
+  // ── VULTURE, for the intercontinental belt ──
+  check('NEXT FIGHT is open again for VULTURE', !s.buttons.next.locked);
   await poke('next');
   await handsDown();
   t = await until((x) => x.phase === 'fight');
-  check('NEXT TITAN prints VULTURE in', t.name === 'VULTURE' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('NEXT FIGHT prints VULTURE in', t.name === 'VULTURE' && t.phase === 'fight', `${t.name} · ${t.phase}`);
   {
     const before = t.hitsTaken;
     await debug({ force: 'volley' });
@@ -555,11 +574,11 @@ if (offered) {
   check('VULTURE falls to the results face', s.mode === 'home' && t.result?.titan === 'VULTURE' && t.result?.won === true, JSON.stringify(t.result));
 
   // ── JUGGERNAUT ──
-  check('NEXT TITAN is open again for JUGGERNAUT', !s.buttons.next.locked);
+  check('NEXT FIGHT is open again for JUGGERNAUT', !s.buttons.next.locked);
   await poke('next');
   await handsDown();
   t = await until((x) => x.phase === 'fight');
-  check('NEXT TITAN prints JUGGERNAUT in', t.name === 'JUGGERNAUT' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('NEXT FIGHT prints JUGGERNAUT in', t.name === 'JUGGERNAUT' && t.phase === 'fight', `${t.name} · ${t.phase}`);
   check('its weak points walk visor, core, low: the visor first', t.open === 'head', t.open);
   {
     let before = t.hitsTaken;
@@ -620,13 +639,15 @@ if (offered) {
   s = await S();
   t = await T();
   check('JUGGERNAUT falls to the results face', s.mode === 'home' && t.result?.titan === 'JUGGERNAUT' && t.result?.won === true, JSON.stringify(t.result));
+  c = await C();
+  check('the TITLE DEFENCE kept the intercontinental belt: one defence', t.result?.outcome?.kept === 'intercontinental' && c.defences.intercontinental === 1 && c.held.join() === 'amateur,national,intercontinental', JSON.stringify(c));
 
   // ── GOLIATH ──
-  check('NEXT TITAN is open for GOLIATH', !s.buttons.next.locked);
+  check('NEXT FIGHT is open for GOLIATH', !s.buttons.next.locked);
   await poke('next');
   await handsDown();
   t = await until((x) => x.phase === 'fight');
-  check('NEXT TITAN prints GOLIATH in', t.name === 'GOLIATH' && t.phase === 'fight', `${t.name} · ${t.phase}`);
+  check('NEXT FIGHT prints GOLIATH in', t.name === 'GOLIATH' && t.phase === 'fight', `${t.name} · ${t.phase}`);
   check('his weak points walk the crown: the visor first', t.open === 'head', t.open);
   {
     let before = t.hitsTaken;
@@ -667,13 +688,97 @@ if (offered) {
   s = await S();
   t = await T();
   check('GOLIATH falls to the results face', s.mode === 'home' && t.result?.titan === 'GOLIATH' && t.result?.won === true, JSON.stringify(t.result));
-  check('and NEXT TITAN locks: he was the last', s.buttons.next.locked);
+  c = await C();
+  check('he was for the WORLD belt: all four are yours', t.result?.outcome?.won === 'world' && c.held.length === 4 && c.next === 5, JSON.stringify(c));
+  check('and NEXT FIGHT is your first world title defence', !s.buttons.next.locked);
+  // ── The world title defence, lost: the belt is stripped ──
+  await poke('next');
+  await handsDown();
+  t = await until((x) => x.phase === 'rising' || x.phase === 'fight');
+  c = await C();
+  check('the WORLD TITLE DEFENCE puts your belt on the line', c.bout.title === 'WORLD TITLE DEFENCE' && c.bout.stakes === 'YOUR WORLD BELT ON THE LINE', JSON.stringify(c.bout));
+  t = await until((x) => x.phase === 'fight');
+  await debug({ setPlayerHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  s = await S();
+  t = await T();
+  c = await C();
+  check('lose a defence and the belt is stripped', t.result?.won === false && t.result?.outcome?.lost === 'world' && !c.held.includes('world') && c.next === 5, JSON.stringify({ r: t.result, c }));
+  check('and NEXT FIGHT stays shut till you win it back', s.buttons.next.locked);
+  await poke('rematch');
+  await handsDown();
+  t = await until((x) => x.phase === 'rising' || x.phase === 'fight');
+  c = await C();
+  check('the rematch is to win it back', c.bout.stakes === 'TO WIN THE WORLD BELT BACK', c.bout.stakes);
+  t = await until((x) => x.phase === 'fight');
+  check('and he has learned new tricks', c.bout.note === 'HE HAS LEARNED NEW TRICKS', c.bout.note);
+  {
+    // THE WHIRLWIND: two spinning backfists, one from each arm.
+    let before = t.hitsTaken;
+    await debug({ force: 'spinback' });
+    t = await until((x) => x.act === null && x.hitsTaken >= before + 2, 12000);
+    check('the WHIRLWIND spins twice, both landing on a head that stays put', t.hitsTaken - before === 2, `hits ${t.hitsTaken - before}`);
+    // THE DOUBLE DECREE: a second row, its gap planned from where you are.
+    await debug({ setPlayerHp: 1 });
+    before = t.hitsTaken;
+    const bolts = t.bolts;
+    await debug({ force: 'decree' });
+    t = await until((x) => x.act === null && x.bolts >= bolts + 12, 12000);
+    await settle(700);
+    t = await T();
+    check('the DOUBLE DECREE fires two rows, each landing once in your lane', t.bolts - bolts === 12 && t.hitsTaken - before === 2, `bolts ${t.bolts - bolts}, hits ${t.hitsTaken - before}`);
+    // THE ORB OF STATE: it hunts a head that stays put; a palm stops it.
+    await debug({ setPlayerHp: 1 });
+    before = t.hitsTaken;
+    await debug({ force: 'orb' });
+    if (shotDir) await until((x) => x.act?.stage === 'recover', 6000), await shot('goliath-orb');
+    t = await until((x) => x.hitsTaken > before, 8000);
+    check('the ORB OF STATE hunts your head down', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await until((x) => x.act === null);
+    await guardUp();
+    let pre = await T();
+    await debug({ force: 'orb' });
+    t = await until((x) => x.blocks > pre.blocks || x.hitsTaken > pre.hitsTaken, 8000);
+    check('a palm up in front of your face stops it', t.blocks - pre.blocks === 1 && t.hitsTaken === pre.hitsTaken, `blocks ${t.blocks - pre.blocks}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
+    await until((x) => x.act === null);
+    // And a fireball bursts it in the air: a punch thrown AT it the moment
+    // it leaves his crown, so the ball is away well before the orb arrives
+    // (headless frames are slow, and the emulator opens a pinch over several).
+    const FACE = { x: 0.12, y: 1.5, z: -0.3 };
+    pre = await T();
+    for (let i = 0; i < 3 && t.orbsShot === pre.orbsShot; i++) {
+      await place('hand-right', FACE);
+      await settle(900);
+      await pinch(1);
+      await debug({ force: 'orb' });
+      t = await until((x) => x.orb !== null, 6000);
+      const o = t.orb;
+      const len = Math.hypot(o[0] - FACE.x, o[1] - FACE.y, o[2] - FACE.z);
+      const dir = { x: (o[0] - FACE.x) / len, y: (o[1] - FACE.y) / len, z: (o[2] - FACE.z) / len };
+      await swing(true, FACE, 3.5, 0.2, dir);
+      t = await until((x) => x.orbsShot > pre.orbsShot || x.hitsTaken > pre.hitsTaken, 4000);
+      await until((x) => x.act === null && x.orb === null, 6000);
+      await debug({ setPlayerHp: 1 });
+      await settle(600);
+      t = await T();
+    }
+    check('a fireball shoots the orb down', t.orbsShot > pre.orbsShot, `shot ${t.orbsShot - pre.orbsShot}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
+  }
+  await debug({ setHp: 0 });
+  await until((x) => x.phase === 'off', 6000);
+  await settle(700);
+  t = await T();
+  c = await C();
+  check('win it and the world belt is yours again', t.result?.outcome?.won === 'world' && c.held.includes('world'), JSON.stringify(c));
   await poke('home');
   s = await S();
   check('HOME goes back to the cards', !(await T()).result && s.buttons.titans.active);
   {
     const log = (await SND()).log;
-    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'volleyCharge', 'boltFire', 'mortarFire', 'decreeCharge', 'decreeOrb', 'decreeFire', 'enrage', 'weakHit', 'titanFall', 'win'];
+    const need = ['titanPrint', 'titanRoar', 'windup', 'swing', 'hitTaken', 'whiff', 'block', 'titanGrunt', 'beamCharge', 'beamLock', 'beamFire', 'volleyCharge', 'boltFire', 'mortarFire', 'decreeCharge', 'decreeOrb', 'decreeFire', 'enrage', 'weakHit', 'titanFall', 'win', 'lose', 'belt', 'beltLost'];
     const missing = need.filter((n) => !log[n]);
     check('the fight makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : `${need.length} sounds`);
   }

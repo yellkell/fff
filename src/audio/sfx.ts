@@ -15,8 +15,13 @@
  * engine): started once, then steered every frame.
  *
  * The AudioContext can only start inside a user gesture: the page's
- * Enter button unlocks it (`unlockAudio`). Everything also renders offline
- * (`renderSound`) for the sound board and the checks.
+ * Enter button unlocks it (`unlockAudio`). In the headset there are no taps
+ * or clicks, but a pinch is an XR `select`, which counts as a gesture, so
+ * every pinch wakes it too (main.ts); and while it isn't running, the
+ * AudioSystem keeps asking (`wakeAudio`), since a browser that parks it on
+ * entering or leaving the session (suspended, or the newer 'interrupted')
+ * lets a page that already had a gesture resume it. Everything also renders
+ * offline (`renderSound`) for the sound board and the checks.
  */
 
 import type { Vector3 } from 'three';
@@ -60,10 +65,19 @@ function getCtx(): AudioContext | null {
   return ctx;
 }
 
-/** Call from a user gesture (the Enter button): audio may only start there. */
+/** Is it parked (suspended, or 'interrupted'), and worth asking to resume? */
+const parked = (c: AudioContext): boolean => (c.state as string) !== 'running' && c.state !== 'closed';
+
+/** Call from a user gesture (the Enter button, a pinch): audio may only start there. */
 export function unlockAudio(): void {
   const c = getCtx();
-  if (c && c.state === 'suspended') void c.resume();
+  if (c && parked(c)) c.resume().catch(() => {});
+}
+
+/** Ask a parked context to run again, without making one (no gesture needed
+ *  once the page has had one). */
+export function wakeAudio(): void {
+  if (ctx && parked(ctx)) ctx.resume().catch(() => {});
 }
 
 if (typeof window !== 'undefined') {
@@ -143,7 +157,7 @@ function play(name: string, at: Pos, body: () => void): void {
   sfxLog[name] = (sfxLog[name] ?? 0) + 1;
   const c = ctx;
   if (!c || !master || muted) return;
-  if (c.state === 'suspended') void c.resume();
+  if (parked(c)) c.resume().catch(() => {});
   if (c.state !== 'running') return;
   cur = { c, dest: at ? panner(c, at, master) : master };
   try {
@@ -696,6 +710,19 @@ export const SOUNDS = {
     [523, 659, 784, 1047].forEach((f, i) => pluck(f, 0.1, 0.4, i * 0.09));
     [1047, 1319, 1568].forEach((f) => pluck(f, 0.06, 0.9, 0.42));
     swell(80, 60, 1.2, 0.12, 0.35, 0.05);
+  },
+  belt: () => {
+    // A belt held up: a rising fanfare in fifths, a long bright shimmer
+    // over it, and a deep swell under it all.
+    [392, 523, 659, 784].forEach((f, i) => pluck(f, 0.1, 0.5, i * 0.12));
+    [1047, 1568, 2093].forEach((f, i) => pluck(f, 0.07, 1.6, 0.5 + i * 0.04));
+    [523, 784].forEach((f) => tone({ freq: f, type: 'triangle', dur: 1.8, gain: 0.05, delay: 0.5 }));
+    swell(60, 90, 1.8, 0.14, 0.4, 0.4);
+  },
+  beltLost: () => {
+    // Stripped: the fanfare run backwards and dropping.
+    [784, 659, 523, 392, 330].forEach((f, i) => pluck(f, 0.08, 0.45, i * 0.11));
+    tone({ freq: 110, to: 45, dur: 1.1, gain: 0.22, delay: 0.3 });
   },
   lose: () => {
     [392, 311, 262, 196].forEach((f, i) => pluck(f, 0.1, 0.45, i * 0.14));

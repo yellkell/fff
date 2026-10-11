@@ -144,7 +144,12 @@ async function start(url: string, target: number, loop: boolean): Promise<void> 
   if (wanted !== url) return;
   loading = null;
   const o = out();
-  if (!got || !o) return;
+  if (!o) {
+    // The sound was parked while it loaded: ask again once it's back.
+    cue = null;
+    return;
+  }
+  if (!got) return;
   const { c } = o;
   if (deck) fadeOut(deck, c);
   const source = c.createBufferSource();

@@ -102,6 +102,14 @@ Built (`src/audio/sfx.ts`). Every sound is synthesised live with WebAudio,
 from FF2's building blocks (tone, noise, clank, swell, growl, servo) plus
 two neon ones (a plucked synth note and an electric zap): no files.
 
+- **Getting it to play in the headset.** The AudioContext starts in the
+  Enter press. A headset browser can park it (suspended, or the newer
+  'interrupted') on the way into the session, and there are no taps in
+  there, so: every pinch (an XR `select`, which counts as a gesture) asks
+  for it back, the AudioSystem asks every half second while it isn't
+  running (allowed, once the page has had a gesture), music that was
+  loading while it was parked tries again, and the wrist panel's SOUND
+  reads NO SOUND · PINCH TO WAKE IT until it's back.
 - **Sound stands in for haptics.** Every press, catch, block and hit has
   one, next to its light.
 - **Sound comes from where it happens.** Positioned sounds go through an
@@ -401,6 +409,29 @@ The king, the last titan: he has learned it all, and teaches.
   lanes from the pad (it's 1.7 m away; the lime ring is the backup), and
   whether the enraged pace is fair.
 
+### 3.10b GOLIATH's rematch
+
+The world title defences (§3.13) are a rematch, and he has studied you
+(`titans/fights.ts` `'GOLIATH REMATCH'`, picked by the bout's `fight`;
+the banner says HE HAS LEARNED NEW TRICKS). Everything he had, and:
+
+- **The Whirlwind:** his spinning backfist twice, one from each arm (so
+  the second spins the other way), the second wound up in 0.75 s and
+  aimed at wherever you went. 20% each.
+- **The Double Decree:** as the first row fires, a second gathers (1.1 s),
+  its gap planned from where you went for the first, so you move twice.
+  A decree with `combo` chains like a piston does.
+- **The Orb of State:** one orb swells over his crown (1.4 s), then leaves
+  it at your head, slow (1.5 m/s), and **hunts** you: it turns toward your
+  head at up to 1.5 rad/s, so a late sidestep still beats it, and once
+  it's past you it stops hunting and flies on (never round behind you).
+  Shoot it down with a fireball (it's a target, 1.6× its size for a
+  hand-thrown ball, and throws bend toward it), palm it, or punch it with
+  a lit fist. 4.5 s before it burns out; 20%.
+- Four times round the crown: 20 hits, not 15. Weighted orb 3, whirlwind
+  3, then decree, clap, piston, sweeping beam, volley 2 and the rest 1;
+  enraged, decree 4.
+
 ### 3.11 Your health
 
 FF2's arcade HUD shows YOUR health as one small bar low in front of you;
@@ -449,6 +480,43 @@ spot, the striking shoulder going back first:
 - **Open, to tune on a headset:** whether ¾ of a turn on a 0.45 s strike
   is fair to read from 2.2 m, and how VULTURE's 3 m wings would look
   spinning in a real room (it doesn't spin yet).
+
+### 3.13 The career: belts
+
+The titans are a title run (`game/career.ts`). TITANS on the console
+always fights your NEXT bout, and NEXT FIGHT on the results face opens
+once you've won the one you just fought:
+
+| # | Bout | Titan | For |
+| --- | --- | --- | --- |
+| 1 | AMATEUR BOUT | RUSTHOOK | the amateur belt (silver on cyan) |
+| 2 | NATIONAL CHAMPIONSHIP | PISTONKAISER | the national belt (gold on ember) |
+| 3 | INTERCONTINENTAL TITLE | VULTURE | the intercontinental belt (gold on magenta) |
+| 4 | TITLE DEFENCE | JUGGERNAUT | your intercontinental belt, on the line |
+| 5 | WORLD CHAMPIONSHIP | GOLIATH | the world belt (gold on deep blue, a red stone) |
+| 6 | WORLD TITLE DEFENCE | GOLIATH | your world belt, on the line, forever: his rematch, with new moves (§3.10b) |
+
+- **Defences:** lose one and the belt is **stripped** (its rack slot goes
+  red), and the rematch is to win it back; win one and it's counted on
+  the rack ("· 2 DEF"). The last bout repeats for as long as you're world
+  champion. Replaying an old bout (REMATCH after a win) changes nothing.
+- **Fight night** (`systems/BoutSystem.ts`): as the titan prints in, a
+  banner hangs between you and it, under its health bar from the pad: the
+  bout's title in its belt's colour, what's at stake ("FOR THE NATIONAL
+  BELT", "YOUR WORLD BELT ON THE LINE", "TO WIN THE … BELT BACK"), "VS
+  THE TITAN", and the belt itself turning over it. It clears 1.6 s into
+  the fight.
+- **The belts** (`ui/belt.ts`): drawn like the titans, dark glass with lit
+  edge tubes and halos: a strap bowed back at the ends, a stitch line, an
+  octagonal centre plate with a ring and a glowing stone, side plates.
+- **The rack:** all four over the console's top edge. A win lifts the
+  belt off the rack, big, over the console (the title reads "NATIONAL
+  CHAMPION") to a fanfare (`belt`), and puts it back after ~4 s; a won
+  defence does the same ("… BELT RETAINED"); a lost one flashes red as
+  it's stripped (`beltLost`).
+- **Saved** in localStorage (`flux-career`), so a career carries over.
+- **Open:** a free-play pick of any titan you've beaten, and whether the
+  JUGGERNAUT defence should be harder than its usual fight.
 
 ## 4 · 1v1 — the second mode
 

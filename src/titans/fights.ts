@@ -47,6 +47,17 @@
  * stops (visor, left shoulder, core, right shoulder, low), three times
  * round. At half health he ENRAGES: a roar, a brighter burn, shorter gaps
  * and more decrees.
+ *
+ * GOLIATH REMATCH, the world title defences (game/career.ts): the king has
+ * studied you. Everything he had, and three new moves:
+ *  - the WHIRLWIND: his spinning backfist twice, one from each arm, the
+ *    second wound up in 0.75 s and aimed at wherever you went;
+ *  - the DOUBLE DECREE: a second row gathers as the first fires, its gap
+ *    planned from where you went for the first, so you move twice;
+ *  - the ORB OF STATE: one slow orb from over his crown that HUNTS your
+ *    head. Shoot it down with a fireball, palm it, or step late (it can
+ *    only turn so fast); once past you it's spent.
+ * Four times round the crown: twenty hits, not fifteen.
  */
 
 import type { StrikeDef, StrikePath } from './strike.js';
@@ -137,6 +148,25 @@ export const FIGHTS: Record<string, TitanFight> = {
     weak: 'crown',
     gap: [0.6, 1.1],
     enrage: { at: 0.5, gap: [0.4, 0.85], weights: { decree: 4, piston: 3, clap: 3, volley: 3, spinback: 2, spinhammer: 2, sweepbeam: 2, overhand: 2, beam: 1 } },
+  },
+  'GOLIATH REMATCH': {
+    moves: [
+      { path: 'decree', limb: 'bolts', windup: 1.8, strike: 0.8, recover: 0.5, damage: 0.25, combo: 2, beat: 1.1 },
+      { path: 'orb', limb: 'bolts', windup: 1.4, strike: 0.6, recover: 0.6, damage: 0.2 },
+      { path: 'spinback', limb: 0, windup: 1.2, strike: 0.42, recover: 0.45, damage: 0.2, combo: 2, beat: 0.75 },
+      { path: 'clap', limb: 'both', windup: 1.1, strike: 0.45, recover: 0.75, damage: 0.25 },
+      { path: 'overhand', limb: 1, windup: 1.2, strike: 0.45, recover: 0.85, damage: 0.3 },
+      { path: 'spinhammer', limb: 1, windup: 1.3, strike: 0.48, recover: 0.85, damage: 0.28 },
+      { path: 'piston', limb: 0, windup: 0.95, strike: 0.3, recover: 0.2, damage: 0.1, combo: 3, beat: 0.48 },
+      { path: 'sweepbeam', limb: 'eye', windup: 1.4, strike: 0.85, recover: 0.55, damage: 0.2 },
+      { path: 'volley', limb: 'bolts', windup: 1.2, strike: 1.3, recover: 0.6, damage: 0.1, combo: 4, beat: 0.32 },
+      { path: 'beam', limb: 'eye', windup: 1.3, strike: 0.35, recover: 0.5, damage: 0.2 },
+    ],
+    weights: { decree: 2, orb: 3, spinback: 3, clap: 2, overhand: 1, spinhammer: 1, piston: 2, sweepbeam: 2, volley: 2, beam: 1 },
+    hits: 20,
+    weak: 'crown',
+    gap: [0.6, 1.1],
+    enrage: { at: 0.5, gap: [0.4, 0.85], weights: { decree: 4, orb: 3, spinback: 3, piston: 3, clap: 2, volley: 2, sweepbeam: 2, spinhammer: 2, overhand: 1, beam: 1 } },
   },
 };
 

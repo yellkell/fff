@@ -8,7 +8,7 @@ import { createSystem, launchXR, SessionMode, World } from '@iwsdk/core';
 import { AmbientLight, Vector3 } from 'three';
 import { buildPlatform } from './arena/platform.js';
 import { musicState } from './audio/music.js';
-import { audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
+import { audioContext, audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
 import { Impacts } from './fx/impact.js';
 import { fx, Sparks } from './fx/neon.js';
 import { game } from './game/state.js';
@@ -23,6 +23,8 @@ import { HandSystem } from './systems/HandSystem.js';
 import { PokeSystem } from './systems/PokeSystem.js';
 import { TargetSystem } from './systems/TargetSystem.js';
 import { titanDebug, titanStats, TitanSystem } from './systems/TitanSystem.js';
+import { boutStats, BoutSystem } from './systems/BoutSystem.js';
+import { career } from './game/career.js';
 import { vitalsStats, VitalsSystem } from './systems/VitalsSystem.js';
 import { WristSystem } from './systems/WristSystem.js';
 import { buttonPose, buttons } from './ui/poke.js';
@@ -68,6 +70,7 @@ World.create(container, {
     .registerSystem(PokeSystem)
     .registerSystem(TargetSystem)
     .registerSystem(TitanSystem)
+    .registerSystem(BoutSystem)
     .registerSystem(DuelSystem)
     .registerSystem(VitalsSystem)
     .registerSystem(FireballSystem)
@@ -88,11 +91,14 @@ World.create(container, {
     mode: () => game.mode,
     titan: () => ({ ...titanStats, playerHp: game.playerHp, result: game.result }),
     titanDebug,
+    career: () => ({ ...career, held: [...career.held], defences: { ...career.defences }, bout: boutStats }),
     duel: () => ({ ...duelStats, playerHp: game.playerHp, result: game.result }),
     duelDebug,
     rung: (n?: number) => (n === undefined ? game.rung : (game.rung = n)),
     vitals: () => ({ ...vitalsStats }),
     sound: () => ({ state: audioState(), muted: isMuted(), gain: masterGain(), log: { ...sfxLog } }),
+    /** Park the sound, as a headset browser can on entering the session. */
+    parkAudio: () => audioContext()?.suspend(),
     music: musicState,
     wristOpen: () => game.wristOpen,
     buttons: () =>
@@ -121,6 +127,9 @@ World.create(container, {
       if (!world.session) return;
       window.clearInterval(poll);
       document.body.classList.add('in-xr');
+      // In the headset a pinch is the gesture (an XR select): every one
+      // wakes the sound, in case the browser parked it on the way in.
+      for (const ev of ['selectstart', 'select', 'squeezestart'] as const) world.session.addEventListener(ev, unlockAudio);
       world.session.addEventListener(
         'end',
         () => {
