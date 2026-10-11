@@ -102,6 +102,14 @@ Built (`src/audio/sfx.ts`). Every sound is synthesised live with WebAudio,
 from FF2's building blocks (tone, noise, clank, swell, growl, servo) plus
 two neon ones (a plucked synth note and an electric zap): no files.
 
+- **Getting it to play in the headset.** The AudioContext starts in the
+  Enter press. A headset browser can park it (suspended, or the newer
+  'interrupted') on the way into the session, and there are no taps in
+  there, so: every pinch (an XR `select`, which counts as a gesture) asks
+  for it back, the AudioSystem asks every half second while it isn't
+  running (allowed, once the page has had a gesture), music that was
+  loading while it was parked tries again, and the wrist panel's SOUND
+  reads NO SOUND · PINCH TO WAKE IT until it's back.
 - **Sound stands in for haptics.** Every press, catch, block and hit has
   one, next to its light.
 - **Sound comes from where it happens.** Positioned sounds go through an
@@ -449,6 +457,43 @@ spot, the striking shoulder going back first:
 - **Open, to tune on a headset:** whether ¾ of a turn on a 0.45 s strike
   is fair to read from 2.2 m, and how VULTURE's 3 m wings would look
   spinning in a real room (it doesn't spin yet).
+
+### 3.13 The career: belts
+
+The titans are a title run (`game/career.ts`). TITANS on the console
+always fights your NEXT bout, and NEXT FIGHT on the results face opens
+once you've won the one you just fought:
+
+| # | Bout | Titan | For |
+| --- | --- | --- | --- |
+| 1 | AMATEUR BOUT | RUSTHOOK | the amateur belt (silver on cyan) |
+| 2 | NATIONAL CHAMPIONSHIP | PISTONKAISER | the national belt (gold on ember) |
+| 3 | INTERCONTINENTAL TITLE | VULTURE | the intercontinental belt (gold on magenta) |
+| 4 | TITLE DEFENCE | JUGGERNAUT | your intercontinental belt, on the line |
+| 5 | WORLD CHAMPIONSHIP | GOLIATH | the world belt (gold on deep blue, a red stone) |
+| 6 | WORLD TITLE DEFENCE | GOLIATH | your world belt, on the line, forever |
+
+- **Defences:** lose one and the belt is **stripped** (its rack slot goes
+  red), and the rematch is to win it back; win one and it's counted on
+  the rack ("· 2 DEF"). The last bout repeats for as long as you're world
+  champion. Replaying an old bout (REMATCH after a win) changes nothing.
+- **Fight night** (`systems/BoutSystem.ts`): as the titan prints in, a
+  banner hangs between you and it, under its health bar from the pad: the
+  bout's title in its belt's colour, what's at stake ("FOR THE NATIONAL
+  BELT", "YOUR WORLD BELT ON THE LINE", "TO WIN THE … BELT BACK"), "VS
+  THE TITAN", and the belt itself turning over it. It clears 1.6 s into
+  the fight.
+- **The belts** (`ui/belt.ts`): drawn like the titans, dark glass with lit
+  edge tubes and halos: a strap bowed back at the ends, a stitch line, an
+  octagonal centre plate with a ring and a glowing stone, side plates.
+- **The rack:** all four over the console's top edge. A win lifts the
+  belt off the rack, big, over the console (the title reads "NATIONAL
+  CHAMPION") to a fanfare (`belt`), and puts it back after ~4 s; a won
+  defence does the same ("… BELT RETAINED"); a lost one flashes red as
+  it's stripped (`beltLost`).
+- **Saved** in localStorage (`flux-career`), so a career carries over.
+- **Open:** a free-play pick of any titan you've beaten, and whether the
+  JUGGERNAUT defence should be harder than its usual fight.
 
 ## 4 · 1v1 — the second mode
 

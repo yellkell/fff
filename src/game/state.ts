@@ -9,6 +9,8 @@
 
 export type Mode = 'home' | 'practice' | 'titans' | 'duel';
 
+import type { Outcome } from './career.js';
+
 export interface FightResult {
   /** Which kind of fight it was: REMATCH and NEXT go back to the same kind. */
   mode: 'titans' | 'duel';
@@ -19,6 +21,9 @@ export interface FightResult {
   time: number;
   /** A duel's rounds, yours then theirs. */
   rounds?: [number, number];
+  /** A titan fight: which bout of your career it was, and what it did to your belts. */
+  bout?: number;
+  outcome?: Outcome;
 }
 
 export const game = {
@@ -31,8 +36,10 @@ export const game = {
   playerHp: 1,
   /** Your head is off the platform (BoundarySystem). */
   headOutside: false,
-  /** Which titan (TITANS index) the TITANS card and REMATCH fight. */
+  /** Which titan (TITANS index) the fight is against. */
   titan: 0,
+  /** Which bout of your career (game/career.ts BOUTS) it is. */
+  bout: 0,
   /** Which rung of the bot ladder (BOT_LADDER index) the 1V1 card fights. */
   rung: 0,
   /** How the last fight ended; the console shows it until you move on. */

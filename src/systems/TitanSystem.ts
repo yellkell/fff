@@ -67,6 +67,7 @@ import { FIGHT, NEON, STAGE } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { guardStop } from '../game/guard.js';
 import { addHittable } from '../game/hittables.js';
+import { recordBout } from '../game/career.js';
 import { game, setMode } from '../game/state.js';
 import { hands, SIDES } from '../input/hands.js';
 import { type DecreePlan, planDecree } from '../titans/decree.js';
@@ -461,6 +462,7 @@ export class TitanSystem extends createSystem({}) {
     if (titanDebug.setPlayerHp !== null) {
       game.playerHp = titanDebug.setPlayerHp;
       titanDebug.setPlayerHp = null;
+      if (game.playerHp <= 0 && this.phase === 'fight') this.enter('falling');
     }
     if (this.phase === 'fight') this.checkEnrage();
 
@@ -1371,7 +1373,9 @@ export class TitanSystem extends createSystem({}) {
   }
 
   private finish(): void {
-    game.result = { mode: 'titans', titan: this.look.name, won: this.hp <= 0, time: this.fightTime };
+    const won = this.hp <= 0;
+    const outcome = recordBout(game.bout, won);
+    game.result = { mode: 'titans', titan: this.look.name, won, time: this.fightTime, bout: game.bout, outcome };
     this.despawn();
     setMode('home');
   }

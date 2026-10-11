@@ -1,11 +1,12 @@
 /**
  * Keeps the sound kit's listener on your head (audio/sfx.ts), so every
- * positioned sound comes from where it happens in your room.
+ * positioned sound comes from where it happens in your room; and while the
+ * browser has the sound parked, keeps asking for it back.
  */
 
 import { createSystem } from '@iwsdk/core';
 import { Quaternion, Vector3 } from 'three';
-import { setListener } from '../audio/sfx.js';
+import { audioState, setListener, wakeAudio } from '../audio/sfx.js';
 
 const _pos = new Vector3();
 const _q = new Quaternion();
@@ -13,7 +14,14 @@ const _fwd = new Vector3();
 const _up = new Vector3();
 
 export class AudioSystem extends createSystem({}) {
-  update(): void {
+  private retry = 0;
+
+  update(delta: number): void {
+    this.retry -= delta;
+    if (this.retry <= 0 && audioState() !== 'running') {
+      this.retry = 0.5;
+      wakeAudio();
+    }
     this.camera.getWorldPosition(_pos);
     this.camera.getWorldQuaternion(_q);
     _fwd.set(0, 0, -1).applyQuaternion(_q);

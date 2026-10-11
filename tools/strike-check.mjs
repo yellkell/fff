@@ -16,6 +16,7 @@ import { reach } from '../src/titans/ik.ts';
 import { armsOf, isSpin, lob, pickStrike, segmentDistance, SPIN, spinPoint, spinTurn, strikePoint, windupOffset } from '../src/titans/strike.ts';
 import { WeakCycle } from '../src/titans/weak.ts';
 import { DECREE, laneXs, planDecree } from '../src/titans/decree.ts';
+import { BOUTS, freshCareer, LAST, record, stakes } from '../src/game/career.ts';
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -165,6 +166,31 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   const h1 = spinPoint('spinhammer', axis, head, 0, 1, new Vector3());
   check('the hammerfist comes down on you from above', h0.y - head.y > 0.5 && h1.distanceTo(head) < 1e-9, `${(h0.y - head.y).toFixed(2)} m over you at the start`);
   check('the backfist folds across the chest; the hammer winds up high', windupOffset('spinback', 1, new Vector3()).x < 0 && windupOffset('spinhammer', 1, new Vector3()).y > 0.3);
+}
+
+// The career: a belt at every step, a defence that can strip it, and a
+// world champion who defends forever.
+{
+  const c = freshCareer();
+  const titans = BOUTS.map((b) => b.titan).join();
+  check('the career walks the roster: RUSTHOOK to GOLIATH, then GOLIATH again', titans === '0,1,2,3,4,4', titans);
+  const lostFirst = record(c, 0, false);
+  check('losing a bout holds you there', c.next === 0 && !lostFirst.won && !lostFirst.lost);
+  const wins = [0, 1, 2].map((i) => record(c, i, true).won);
+  check('the amateur, national and intercontinental bouts each win their belt', wins.join() === 'amateur,national,intercontinental' && c.next === 3, wins.join());
+  check('a title fight is for its belt', stakes(c, 4) === 'FOR THE WORLD BELT');
+  check('a defence puts yours on the line', stakes(c, 3) === 'YOUR INTERCONTINENTAL BELT ON THE LINE');
+  const lost = record(c, 3, false);
+  check('lose a defence and the belt is stripped, and you go again', lost.lost === 'intercontinental' && !c.held.includes('intercontinental') && c.next === 3);
+  check('the rematch is to win it back', stakes(c, 3) === 'TO WIN THE INTERCONTINENTAL BELT BACK');
+  const back = record(c, 3, true);
+  check('win it and it is back, and the world title opens', back.won === 'intercontinental' && c.held.includes('intercontinental') && c.next === 4);
+  record(c, 4, true);
+  const d1 = record(c, LAST, true);
+  const d2 = record(c, LAST, true);
+  check('the world champion defends, again and again, counted', d1.kept === 'world' && d2.kept === 'world' && c.defences.world === 2 && c.next === LAST);
+  const replay = record(c, 0, true);
+  check('an old bout won again changes nothing', !replay.won && !replay.kept && c.held.length === 4 && c.next === LAST);
 }
 
 // The grammar.
