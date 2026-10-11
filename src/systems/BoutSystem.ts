@@ -25,7 +25,7 @@ const LINGER = 1.6;
 const FADE = 0.45;
 
 /** What the banner is showing, for the probes. */
-export const boutStats = { shown: false, title: '', stakes: '', belt: '' };
+export const boutStats = { shown: false, title: '', stakes: '', note: '', belt: '' };
 
 export class BoutSystem extends createSystem({}) {
   private readonly root = new Group();
@@ -93,7 +93,8 @@ export class BoutSystem extends createSystem({}) {
       this.belt.root.visible = true;
       this.belt.setLevel(1);
     }
-    Object.assign(boutStats, { title: bout.title, stakes: line, belt: id ?? '' });
+    const note = bout.note ?? '';
+    Object.assign(boutStats, { title: bout.title, stakes: line, note, belt: id ?? '' });
     this.text.draw((g, w, h) => {
       g.textAlign = 'center';
       g.textBaseline = 'middle';
@@ -102,7 +103,11 @@ export class BoutSystem extends createSystem({}) {
       glowText(g, bout.title, w / 2, h * 0.24, belt?.strap ?? titan.accent);
       fitFont(g, line, 700, h * 0.12, w * 0.9);
       g.fillStyle = 'rgba(233,236,255,0.85)';
-      g.fillText(line, w / 2, h * 0.5);
+      g.fillText(line, w / 2, note ? h * 0.45 : h * 0.5);
+      if (note) {
+        fitFont(g, note, 800, h * 0.1, w * 0.9);
+        glowText(g, note, w / 2, h * 0.58, titan.accent);
+      }
       fitFont(g, `VS ${titan.name}`, 900, h * 0.2, w * 0.9);
       glowText(g, `VS ${titan.name}`, w / 2, h * 0.76, titan.line);
     });

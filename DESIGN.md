@@ -409,6 +409,29 @@ The king, the last titan: he has learned it all, and teaches.
   lanes from the pad (it's 1.7 m away; the lime ring is the backup), and
   whether the enraged pace is fair.
 
+### 3.10b GOLIATH's rematch
+
+The world title defences (§3.13) are a rematch, and he has studied you
+(`titans/fights.ts` `'GOLIATH REMATCH'`, picked by the bout's `fight`;
+the banner says HE HAS LEARNED NEW TRICKS). Everything he had, and:
+
+- **The Whirlwind:** his spinning backfist twice, one from each arm (so
+  the second spins the other way), the second wound up in 0.75 s and
+  aimed at wherever you went. 20% each.
+- **The Double Decree:** as the first row fires, a second gathers (1.1 s),
+  its gap planned from where you went for the first, so you move twice.
+  A decree with `combo` chains like a piston does.
+- **The Orb of State:** one orb swells over his crown (1.4 s), then leaves
+  it at your head, slow (1.5 m/s), and **hunts** you: it turns toward your
+  head at up to 1.5 rad/s, so a late sidestep still beats it, and once
+  it's past you it stops hunting and flies on (never round behind you).
+  Shoot it down with a fireball (it's a target, 1.6× its size for a
+  hand-thrown ball, and throws bend toward it), palm it, or punch it with
+  a lit fist. 4.5 s before it burns out; 20%.
+- Four times round the crown: 20 hits, not 15. Weighted orb 3, whirlwind
+  3, then decree, clap, piston, sweeping beam, volley 2 and the rest 1;
+  enraged, decree 4.
+
 ### 3.11 Your health
 
 FF2's arcade HUD shows YOUR health as one small bar low in front of you;
@@ -471,7 +494,7 @@ once you've won the one you just fought:
 | 3 | INTERCONTINENTAL TITLE | VULTURE | the intercontinental belt (gold on magenta) |
 | 4 | TITLE DEFENCE | JUGGERNAUT | your intercontinental belt, on the line |
 | 5 | WORLD CHAMPIONSHIP | GOLIATH | the world belt (gold on deep blue, a red stone) |
-| 6 | WORLD TITLE DEFENCE | GOLIATH | your world belt, on the line, forever |
+| 6 | WORLD TITLE DEFENCE | GOLIATH | your world belt, on the line, forever: his rematch, with new moves (§3.10b) |
 
 - **Defences:** lose one and the belt is **stripped** (its rack slot goes
   red), and the rematch is to win it back; win one and it's counted on

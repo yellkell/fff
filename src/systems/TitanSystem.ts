@@ -20,8 +20,10 @@
  *   BEAMS    from its eye: locked on your head, or locked at your head's
  *            HEIGHT and swept across the pad (duck under it).
  *   BOLTS    things it throws: a VOLLEY from wingtips or launcher pods, a
- *            MORTAR lobbed from the pods to fall on where you stood, and
- *            GOLIATH's DECREE, a row of bolts with one gap (decree.ts).
+ *            MORTAR lobbed from the pods to fall on where you stood,
+ *            GOLIATH's DECREE, a row of bolts with one gap (decree.ts), and
+ *            his ORB OF STATE, which hunts your head until you shoot it
+ *            down with a fireball, palm it, or outstep it.
  *
  * Judging is in 3D against your real head and hands, swept frame to frame:
  *   - a fist's, bolt's or beam's path through your head is a HIT (your
@@ -67,7 +69,7 @@ import { FIGHT, NEON, STAGE } from '../config.js';
 import { fx, glowSprite } from '../fx/neon.js';
 import { guardStop } from '../game/guard.js';
 import { addHittable } from '../game/hittables.js';
-import { recordBout } from '../game/career.js';
+import { BOUTS, recordBout } from '../game/career.js';
 import { game, setMode } from '../game/state.js';
 import { hands, SIDES } from '../input/hands.js';
 import { type DecreePlan, planDecree } from '../titans/decree.js';
@@ -168,6 +170,10 @@ interface Bolt {
   live: boolean;
   /** Held in place (a decree's row) until its act fires it. */
   held: boolean;
+  /** How fast it turns to hunt your head (rad/s): 0 flies straight. */
+  homing: number;
+  /** Seconds it flies before it burns out. */
+  life: number;
 }
 
 /** Where bolts leave from: a point on a wingtip or a launcher pod. */
@@ -203,6 +209,9 @@ export const titanStats = {
   armourHits: 0,
   /** Bolts and shells thrown this fight. */
   bolts: 0,
+  /** Orbs you shot down, and where the one hunting you is (or null). */
+  orbsShot: 0,
+  orb: null as number[] | null,
 };
 
 /** Test hooks for the headless checks: force a move, hold its fire, set its health or yours. */
@@ -245,6 +254,7 @@ const SWING: Record<StrikePath, number> = {
   volley: 0,
   mortar: 0,
   decree: 0,
+  orb: 0,
 };
 const BOLTS = 20;
 const PARTS: readonly WeakPart[] = ['head', 'core', 'low', 'shoulderL', 'shoulderR'];
@@ -411,7 +421,27 @@ export class TitanSystem extends createSystem({}) {
       obj.add(halo, glowSprite(NEON.hot, 0.08));
       obj.visible = false;
       this.scene.add(obj);
-      this.bolts.push({ obj, halo, pos: new Vector3(), vel: new Vector3(), g: 0, radius: 0, age: 0, damage: 0, group: 0, live: false, held: false });
+      const b: Bolt = { obj, halo, pos: new Vector3(), vel: new Vector3(), g: 0, radius: 0, age: 0, damage: 0, group: 0, live: false, held: false, homing: 0, life: 0 };
+      this.bolts.push(b);
+      // An orb in flight is a target: a fireball bursts it. Generous, like
+      // the core: a hand-thrown ball leaves its orbit well off your palm.
+      addHittable({
+        pos: b.pos,
+        get radius() {
+          return b.radius * 1.6;
+        },
+        live: () => b.live && !b.held && b.homing > 0,
+        assist: true,
+        onReturn: false,
+        hit: () => {
+          titanStats.orbsShot++;
+          fx.sparks?.burst(b.pos, 40, this.look.accent, 2);
+          fx.impacts?.hit(b.pos, this.look.accent, 0.5, 2);
+          sfx('shellBurst', b.pos);
+          this.killBolt(b);
+          return 'stop';
+        },
+      });
     }
 
     // Weak points first, so a ball that clips both counts on the weak point.
@@ -539,6 +569,7 @@ export class TitanSystem extends createSystem({}) {
     if (a.stage === 'windup') {
       if (d.limb === 'eye') this.beamWindup(a);
       if (d.path === 'decree') this.decreeWindup(a);
+      if (d.path === 'orb') this.orbWindup(a);
       if (a.t >= d.windup) {
         // The windup ends: SNAPSHOT your head, and go.
         if (isFist(d)) {
@@ -555,13 +586,15 @@ export class TitanSystem extends createSystem({}) {
         }
         if (d.limb === 'eye') sfx('beamFire', this.rig!.eyeFx.getWorldPosition(_v));
         if (isSpin(d.path)) this.chainVel += 3; // the turn flings the king's chain out
-        if (d.path === 'decree') this.decreeFire(a);
+        if (d.path === 'decree' || d.path === 'orb') this.decreeFire(a);
       }
     } else if (a.stage === 'recover' && a.t >= d.recover) {
       this.act = null;
-      // A chain carries on from the other arm, on the beat, unless you broke it.
-      if (a.left > 0 && !a.blocked && (d.limb === 0 || d.limb === 1)) {
-        this.begin({ ...d, limb: d.limb === 0 ? 1 : 0, windup: d.beat ?? d.windup }, a.left - 1);
+      // A chain carries on from the other arm, on the beat, unless you broke
+      // it; a decree's second row gathers on its beat.
+      if (a.left > 0 && !a.blocked && (d.limb === 0 || d.limb === 1 || d.path === 'decree')) {
+        const limb = d.limb === 0 ? 1 : d.limb === 1 ? 0 : d.limb;
+        this.begin({ ...d, limb, windup: d.beat ?? d.windup }, a.left - 1);
         return;
       }
       this.last = d.path;
@@ -790,7 +823,7 @@ export class TitanSystem extends createSystem({}) {
 
   /** Throw each bolt or shell as its beat comes round, from alternating tips. */
   private boltsStep(a: Act): void {
-    if (a.def.path === 'decree') return;
+    if (a.def.path === 'decree' || a.def.path === 'orb') return;
     const n = a.def.combo ?? 1;
     const beat = a.def.beat ?? 0.4;
     while (a.fired < n && a.t >= a.fired * beat) {
@@ -826,7 +859,9 @@ export class TitanSystem extends createSystem({}) {
     fx.sparks?.burst(b.pos, 14, this.look.accent, 1.2);
   }
 
-  private launch(b: Bolt, a: Act, g: number, radius: number, size: number): void {
+  private launch(b: Bolt, a: Act, g: number, radius: number, size: number, homing = 0, life = FIGHT.boltLife): void {
+    b.homing = homing;
+    b.life = life;
     b.g = g;
     b.radius = radius;
     b.age = 0;
@@ -874,17 +909,48 @@ export class TitanSystem extends createSystem({}) {
     }
   }
 
-  /** Every held bolt fires at once, across its lane at your head's height. */
+  /**
+   * THE ORB OF STATE's windup: one big orb swells over the king's crown,
+   * then leaves it at your head, slow, and hunts you (stepBolts) until it's
+   * shot down, palmed, outstepped, or burns out.
+   */
+  private orbWindup(a: Act): void {
+    const head = this.rig!.head.getWorldPosition(_w);
+    if (!a.held.length) {
+      const b = this.freeBolt();
+      if (!b) return;
+      b.pos.copy(head);
+      b.vel.set(0, 0, 0);
+      this.launch(b, a, 0, FIGHT.orbRadius, 0.2, FIGHT.orbTurn, FIGHT.orbLife);
+      titanStats.bolts--; // not thrown yet
+      b.held = true;
+      a.held.push(b);
+      sfx('decreeOrb', b.pos, 0);
+    }
+    const b = a.held[0];
+    const u = Math.min(1, a.t / a.def.windup);
+    b.pos.set(head.x, head.y + 0.3 + 0.03 * Math.sin(this.t * 6), head.z + 0.25);
+    b.obj.position.copy(b.pos);
+    b.halo.scale.setScalar(0.2 + 0.4 * u);
+    if (Math.random() < 0.5) fx.sparks?.burst(b.pos, 2, this.look.accent, 0.5);
+  }
+
+  /** Every held bolt fires at once: a decree's across its lane at your
+   *  head's height, an orb straight at your head (and then it hunts). */
   private decreeFire(a: Act): void {
     for (const b of a.held) {
-      _aim.set(b.pos.x, _head.y, _head.z);
-      b.vel.copy(_aim).sub(b.pos).setLength(FIGHT.decreeSpeed);
+      if (b.homing > 0) {
+        b.vel.copy(_head).sub(b.pos).setLength(FIGHT.orbSpeed);
+      } else {
+        _aim.set(b.pos.x, _head.y, _head.z);
+        b.vel.copy(_aim).sub(b.pos).setLength(FIGHT.decreeSpeed);
+      }
       b.held = false;
       titanStats.bolts++;
     }
     a.held = [];
     sfx('decreeFire', this.rig!.head.getWorldPosition(_v));
-    fx.impacts?.hit(_v, this.look.accent, 1.2, 2);
+    fx.impacts?.hit(_v, this.look.accent, a.def.path === 'orb' ? 0.6 : 1.2, 2);
   }
 
   /** Bolts in flight, swept frame to frame: palms and balls, then your head. */
@@ -893,6 +959,15 @@ export class TitanSystem extends createSystem({}) {
       if (!b.live || b.held) continue;
       b.age += delta;
       _prev.copy(b.pos);
+      if (b.homing > 0) {
+        // Hunting: turn toward your head, no faster than its turn rate;
+        // once it's past you it's spent, and flies on (never round behind).
+        _aim.copy(_head).sub(b.pos);
+        const speed = b.vel.length();
+        const ang = b.vel.angleTo(_aim);
+        if (ang > Math.PI / 2) b.homing = 0;
+        else if (ang > 1e-4) b.vel.lerp(_aim.setLength(speed), Math.min(1, (b.homing * delta) / ang)).setLength(speed);
+      }
       b.vel.y -= b.g * delta;
       b.pos.addScaledVector(b.vel, delta);
       b.obj.position.copy(b.pos);
@@ -916,7 +991,7 @@ export class TitanSystem extends createSystem({}) {
           sfx('hitTaken');
         }
         this.killBolt(b);
-      } else if (b.age > FIGHT.boltLife || b.pos.y < 0.03) {
+      } else if (b.age > b.life || b.pos.y < 0.03) {
         if (b.g > 0) {
           // A shell bursting on your floor.
           b.pos.y = Math.max(0.03, b.pos.y);
@@ -1196,7 +1271,9 @@ export class TitanSystem extends createSystem({}) {
   private spawn(): void {
     if (!playable(TITANS[game.titan]?.name)) game.titan = 0;
     this.look = TITANS[game.titan];
-    this.fight = FIGHTS[this.look.name];
+    // A bout can bring its own fight (GOLIATH's rematch: new moves).
+    const own = BOUTS[game.bout]?.titan === game.titan ? BOUTS[game.bout].fight : undefined;
+    this.fight = (own && FIGHTS[own]) || FIGHTS[this.look.name];
     const rig = buildTitan(this.look);
     this.rig = rig;
     this.k = stageScale(rig.height);
@@ -1340,7 +1417,7 @@ export class TitanSystem extends createSystem({}) {
     this.stagger = 0;
     this.lunge = 0;
     this.fightTime = 0;
-    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, enraged: false, decreeGap: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0 });
+    Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, enraged: false, decreeGap: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0, orbsShot: 0 });
     this.enter('rising');
     this.printTo(0);
   }
@@ -1439,5 +1516,7 @@ export class TitanSystem extends createSystem({}) {
     titanStats.act = this.act ? { path: this.act.def.path, stage: this.act.stage, left: this.act.left } : null;
     titanStats.open = this.weak.open;
     titanStats.enraged = this.enraged;
+    const orb = this.bolts.find((b) => b.live && !b.held && b.homing > 0);
+    titanStats.orb = orb ? orb.pos.toArray() : null;
   }
 }

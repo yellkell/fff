@@ -186,7 +186,11 @@ rebuilt for the headsets that ship without controllers. **Read
      it back;
   5. the **WORLD CHAMPIONSHIP** against GOLIATH;
   6. then **WORLD TITLE DEFENCES** against GOLIATH, for as long as you can
-     hold it, every one counted.
+     hold it, every one counted. It's a rematch and he's learned new
+     tricks: the **Whirlwind** (his spinning backfist twice, one from each
+     arm), the **Double Decree** (a second row as the first fires, its gap
+     somewhere new), and the **Orb of State**, which hunts your head until
+     you shoot it down with a fireball, palm it, or step late. Twenty hits.
 
   Your belts hang on a rack over the console: lit if they're yours, a
   ghost if not yet, red if stripped. Win one and it comes off the rack and

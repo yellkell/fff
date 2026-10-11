@@ -7,7 +7,8 @@
  *   3  INTERCONTINENTAL TITLE  VULTURE       the intercontinental belt
  *   4  TITLE DEFENCE           JUGGERNAUT    your intercontinental belt, on the line
  *   5  WORLD CHAMPIONSHIP      GOLIATH       the world belt
- *   6  WORLD TITLE DEFENCE     GOLIATH       your world belt, on the line, again and again
+ *   6  WORLD TITLE DEFENCE     GOLIATH       your world belt, on the line, again and again:
+ *                                            the REMATCH, and he's learned new moves
  *
  * Win your next bout and the one after opens. Lose a DEFENCE and the belt
  * is stripped from you; the rematch is for it back. The last bout repeats
@@ -58,6 +59,10 @@ export interface Bout {
   /** The belt a win takes, or the one you put on the line. */
   wins?: BeltId;
   defends?: BeltId;
+  /** Its own fight (titans/fights.ts), if not the titan's usual one. */
+  fight?: string;
+  /** Said under the stakes on its banner. */
+  note?: string;
 }
 
 export const BOUTS: readonly Bout[] = [
@@ -66,7 +71,7 @@ export const BOUTS: readonly Bout[] = [
   { title: 'INTERCONTINENTAL TITLE', short: 'INTERCONTINENTAL', titan: 2, wins: 'intercontinental' },
   { title: 'TITLE DEFENCE', short: 'TITLE DEFENCE', titan: 3, defends: 'intercontinental' },
   { title: 'WORLD CHAMPIONSHIP', short: 'WORLD TITLE', titan: 4, wins: 'world' },
-  { title: 'WORLD TITLE DEFENCE', short: 'WORLD DEFENCE', titan: 4, defends: 'world' },
+  { title: 'WORLD TITLE DEFENCE', short: 'WORLD DEFENCE', titan: 4, defends: 'world', fight: 'GOLIATH REMATCH', note: 'HE HAS LEARNED NEW TRICKS' },
 ];
 
 /** The last bout: the world champion's defences, forever. */

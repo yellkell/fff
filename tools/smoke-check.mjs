@@ -15,7 +15,9 @@
  * career, a belt at every step (the banner, the award, the defence): PISTONKAISER's piston chain and turn-taking weak points,
  * VULTURE's volley, JUGGERNAUT's mortar, clap and sweeping beam (ducked
  * under, then taken standing) and spinning hammerfist, and GOLIATH's decree
- * (dodged in its gap, taken in a lane, then blocked there) and his enrage;
+ * (dodged in its gap, taken in a lane, then blocked there) and his enrage,
+ * the world title won, a defence lost and won back in his rematch (the
+ * whirlwind, the double decree, and the orb: taken, palmed, shot down);
  * a palm held up in front of your face blocks every volley bolt and shell.
  * Then 1V1: the ROOKIE fades in, counts you down and rings the bell; its ball lands on a still head,
  * misses one that steps aside after the release, is knocked out of the air
@@ -164,21 +166,22 @@ if (offered) {
    *  a pinch opening over several frames, and a hand that's already
    *  stopped by the time it reads as open is (rightly) a drop, not a throw. */
   const HOME = { x: 0.25, y: 1.5, z: -0.4 };
-  const swing = (release, from = HOME, speed = 3.5, secs = 0.36) =>
+  const swing = (release, from = HOME, speed = 3.5, secs = 0.36, dir = { x: 0, y: 0, z: -1 }) =>
     page.evaluate(
-      async ({ release, from, speed, secs }) => {
+      async ({ release, from, speed, secs, dir }) => {
         const d = window.IWER_DEVICE;
         const t0 = performance.now();
         for (;;) {
           const t = Math.min(secs, (performance.now() - t0) / 1000);
-          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { ...from, z: from.z - speed * t } });
+          const k = speed * t;
+          await d.remote.dispatch('set_transform', { device: 'hand-right', position: { x: from.x + dir.x * k, y: from.y + dir.y * k, z: from.z + dir.z * k } });
           if (release && t >= secs / 2) d.hands.right.updatePinchValue(0);
           await new Promise(requestAnimationFrame);
           if (t >= secs) break;
         }
         for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame);
       },
-      { release, from, speed, secs },
+      { release, from, speed, secs, dir },
     );
   const home = () => place('hand-right', HOME);
   /** Chest height, centre-right: a straight punch from here is on the core. */
@@ -709,6 +712,61 @@ if (offered) {
   c = await C();
   check('the rematch is to win it back', c.bout.stakes === 'TO WIN THE WORLD BELT BACK', c.bout.stakes);
   t = await until((x) => x.phase === 'fight');
+  check('and he has learned new tricks', c.bout.note === 'HE HAS LEARNED NEW TRICKS', c.bout.note);
+  {
+    // THE WHIRLWIND: two spinning backfists, one from each arm.
+    let before = t.hitsTaken;
+    await debug({ force: 'spinback' });
+    t = await until((x) => x.act === null && x.hitsTaken >= before + 2, 12000);
+    check('the WHIRLWIND spins twice, both landing on a head that stays put', t.hitsTaken - before === 2, `hits ${t.hitsTaken - before}`);
+    // THE DOUBLE DECREE: a second row, its gap planned from where you are.
+    await debug({ setPlayerHp: 1 });
+    before = t.hitsTaken;
+    const bolts = t.bolts;
+    await debug({ force: 'decree' });
+    t = await until((x) => x.act === null && x.bolts >= bolts + 12, 12000);
+    await settle(700);
+    t = await T();
+    check('the DOUBLE DECREE fires two rows, each landing once in your lane', t.bolts - bolts === 12 && t.hitsTaken - before === 2, `bolts ${t.bolts - bolts}, hits ${t.hitsTaken - before}`);
+    // THE ORB OF STATE: it hunts a head that stays put; a palm stops it.
+    await debug({ setPlayerHp: 1 });
+    before = t.hitsTaken;
+    await debug({ force: 'orb' });
+    if (shotDir) await until((x) => x.act?.stage === 'recover', 6000), await shot('goliath-orb');
+    t = await until((x) => x.hitsTaken > before, 8000);
+    check('the ORB OF STATE hunts your head down', t.hitsTaken - before === 1, `hits ${t.hitsTaken - before}`);
+    await until((x) => x.act === null);
+    await guardUp();
+    let pre = await T();
+    await debug({ force: 'orb' });
+    t = await until((x) => x.blocks > pre.blocks || x.hitsTaken > pre.hitsTaken, 8000);
+    check('a palm up in front of your face stops it', t.blocks - pre.blocks === 1 && t.hitsTaken === pre.hitsTaken, `blocks ${t.blocks - pre.blocks}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
+    await until((x) => x.act === null);
+    // And a fireball bursts it in the air: a punch thrown AT it the moment
+    // it leaves his crown, so the ball is away well before the orb arrives
+    // (headless frames are slow, and the emulator opens a pinch over several).
+    const FACE = { x: 0.12, y: 1.5, z: -0.3 };
+    pre = await T();
+    for (let i = 0; i < 3 && t.orbsShot === pre.orbsShot; i++) {
+      await place('hand-right', FACE);
+      await settle(900);
+      await pinch(1);
+      await debug({ force: 'orb' });
+      t = await until((x) => x.orb !== null, 6000);
+      const o = t.orb;
+      const len = Math.hypot(o[0] - FACE.x, o[1] - FACE.y, o[2] - FACE.z);
+      const dir = { x: (o[0] - FACE.x) / len, y: (o[1] - FACE.y) / len, z: (o[2] - FACE.z) / len };
+      await swing(true, FACE, 3.5, 0.2, dir);
+      t = await until((x) => x.orbsShot > pre.orbsShot || x.hitsTaken > pre.hitsTaken, 4000);
+      await until((x) => x.act === null && x.orb === null, 6000);
+      await debug({ setPlayerHp: 1 });
+      await settle(600);
+      t = await T();
+    }
+    check('a fireball shoots the orb down', t.orbsShot > pre.orbsShot, `shot ${t.orbsShot - pre.orbsShot}, hits ${t.hitsTaken - pre.hitsTaken}`);
+    await handsDown();
+  }
   await debug({ setHp: 0 });
   await until((x) => x.phase === 'off', 6000);
   await settle(700);

@@ -30,13 +30,15 @@ export type StrikePath =
   | 'sweepbeam'
   | 'volley'
   | 'mortar'
-  | 'decree';
+  | 'decree'
+  | 'orb';
 
 export interface StrikeDef {
   path: StrikePath;
   /** Which arm (0 or 1), 'both' (a clap), 'eye' for a beam, or 'bolts' for
    *  things it throws: a volley from the wingtips (or launcher pods), a
-   *  mortar lobbed from the pods, a decree from over its crown. */
+   *  mortar lobbed from the pods, a decree from over its crown, an orb
+   *  that hunts you from over it. */
   limb: 0 | 1 | 'both' | 'eye' | 'bolts';
   windup: number;
   strike: number;
@@ -45,7 +47,8 @@ export interface StrikeDef {
   /** Blows in a chain (default 1). Each one after the first comes from the
    *  OTHER arm, wound up for `beat` seconds, aimed at where your head is by
    *  then: keep moving on the beat. A block breaks the chain. On a volley
-   *  it's the bolts thrown, `beat` seconds apart. */
+   *  it's the bolts thrown, `beat` seconds apart; on a decree, a second
+   *  row gathered for `beat` seconds, its gap planned from where you went. */
   combo?: number;
   beat?: number;
 }
@@ -78,6 +81,7 @@ export function windupOffset(path: StrikePath, side: number, out: Vector3): Vect
     case 'volley':
     case 'mortar':
     case 'decree':
+    case 'orb':
       return out.set(0, 0, 0);
   }
 }
@@ -144,6 +148,7 @@ export function strikePoint(
     case 'volley':
     case 'mortar':
     case 'decree':
+    case 'orb':
       return out.copy(to);
   }
   // Quadratic Bézier from → c → end.
