@@ -8,7 +8,7 @@ import { createSystem, launchXR, SessionMode, World } from '@iwsdk/core';
 import { AmbientLight, Vector3 } from 'three';
 import { buildPlatform } from './arena/platform.js';
 import { musicState } from './audio/music.js';
-import { audioContext, audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
+import { audioContext, audioState, isMuted, masterGain, readyAudio, sfxLog, unlockAudio } from './audio/sfx.js';
 import { Impacts } from './fx/impact.js';
 import { fx, Sparks } from './fx/neon.js';
 import { game } from './game/state.js';
@@ -117,10 +117,11 @@ World.create(container, {
   }
   status.textContent = 'Put your controllers down. Hands only.';
   enter.disabled = false;
-  enter.addEventListener('click', () => {
+  enter.addEventListener('click', async () => {
     enter.disabled = true;
-    // The one gesture that's allowed to start sound.
-    unlockAudio();
+    // The one gesture that's allowed to start sound: get it running BEFORE
+    // the session starts (a moment's wait, well inside the gesture's life).
+    await readyAudio();
     launchXR(world, { sessionMode: SessionMode.ImmersiveAR });
     // Poll on a timer, not rAF: Quest suspends window rAF while presenting.
     const poll = window.setInterval(() => {

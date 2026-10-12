@@ -14,17 +14,25 @@
  * HUMS are the continuous ones (a ball orbiting your hand, the titan's
  * engine): started once, then steered every frame.
  *
+ * ONE CONTEXT. The kit, the music and IWSDK's own audio system all share
+ * three.js's AudioContext, so there's one thing to wake, not two: IWSDK
+ * makes its own the moment the world starts and resumes it as the session
+ * begins, and a second, separate one is just another for the headset
+ * browser to leave parked.
+ *
  * The AudioContext can only start inside a user gesture: the page's
- * Enter button unlocks it (`unlockAudio`). In the headset there are no taps
- * or clicks, but a pinch is an XR `select`, which counts as a gesture, so
- * every pinch wakes it too (main.ts); and while it isn't running, the
- * AudioSystem keeps asking (`wakeAudio`), since a browser that parks it on
- * entering or leaving the session (suspended, or the newer 'interrupted')
- * lets a page that already had a gesture resume it. Everything also renders
- * offline (`renderSound`) for the sound board and the checks.
+ * Enter button unlocks it (`readyAudio`), plays a silent sample to open the
+ * output, and waits (briefly) for it to be running before the session
+ * starts. In the headset there are no taps or clicks, but a pinch is an XR
+ * `select`, which counts as a gesture, so every pinch wakes it too
+ * (main.ts); the moment the browser parks it (suspended, or the newer
+ * 'interrupted') it's asked straight back, and while it isn't running the
+ * AudioSystem keeps asking (`wakeAudio`), since a page that already had a
+ * gesture may resume it. Everything also renders offline (`renderSound`)
+ * for the sound board and the checks.
  */
 
-import type { Vector3 } from 'three';
+import { AudioContext as SharedAudio, type Vector3 } from 'three';
 
 type Pos = Vector3 | null | undefined;
 
@@ -55,12 +63,18 @@ const MIX = 0.85;
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!ctx) {
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
+    if (!window.AudioContext && !(window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext) return null;
+    try {
+      ctx = SharedAudio.getContext() as AudioContext;
+    } catch {
+      return null;
+    }
     master = ctx.createGain();
     master.gain.value = muted ? 0 : MIX;
     master.connect(ctx.destination);
+    // Parked by the browser (entering or leaving the session, a system
+    // overlay): ask for it straight back.
+    ctx.addEventListener('statechange', () => wakeAudio());
   }
   return ctx;
 }
@@ -68,10 +82,30 @@ function getCtx(): AudioContext | null {
 /** Is it parked (suspended, or 'interrupted'), and worth asking to resume? */
 const parked = (c: AudioContext): boolean => (c.state as string) !== 'running' && c.state !== 'closed';
 
-/** Call from a user gesture (the Enter button, a pinch): audio may only start there. */
+/** Call from a user gesture (the Enter button, a pinch): audio may only start
+ *  there. A silent sample played inside the gesture opens the output on
+ *  browsers that only count a context as started once something plays. */
 export function unlockAudio(): void {
   const c = getCtx();
-  if (c && parked(c)) c.resume().catch(() => {});
+  if (!c) return;
+  if (parked(c)) c.resume().catch(() => {});
+  try {
+    const src = c.createBufferSource();
+    src.buffer = c.createBuffer(1, 1, c.sampleRate);
+    src.connect(c.destination);
+    src.start(0);
+  } catch {
+    /* nothing to open */
+  }
+}
+
+/** The Enter press: unlock, then wait (up to `ms`) until it's really running,
+ *  so the session starts with the sound already on. */
+export async function readyAudio(ms = 300): Promise<void> {
+  unlockAudio();
+  const c = ctx;
+  if (!c || c.state === 'running') return;
+  await Promise.race([c.resume().catch(() => {}), new Promise((r) => setTimeout(r, ms))]);
 }
 
 /** Ask a parked context to run again, without making one (no gesture needed

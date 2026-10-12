@@ -59,6 +59,10 @@ rebuilt for the headsets that ship without controllers. **Read
     **eye beam** that tracks you, locks, then fires;
   - its arms really reach (`titans/ik.ts`): the elbow bends, the forearm
     telescopes out on a lit piston, and the whole machine lunges in;
+  - it moves like weight (`titans/spring.ts`): after a blow the fist
+    carries through, brakes and settles back to its guard, a blocked one
+    rebounds, and the lunge, the turn to face you and the rock back from a
+    hit all ease on critically damped springs. Nothing snaps home;
   - every blow flies at where your head was when the windup ended:
     **step off the line or duck**, or **block** with an open palm facing
     it (or a ball orbiting your hand). A blocked blow staggers it;
@@ -151,7 +155,9 @@ rebuilt for the headsets that ship without controllers. **Read
   **SOUND** and **MUSIC**, each on and off, remembered. If the headset's
   browser has parked the sound, SOUND reads **NO SOUND · PINCH TO WAKE
   IT**: every pinch is a gesture the browser accepts, and the game keeps
-  asking for the sound back on its own too.
+  asking for the sound back on its own too. The sound effects, the music
+  and IWSDK's own audio share ONE AudioContext, and the Enter press gets
+  it running (a silent sample opens the output) before the session starts.
 
 - **Sparks that fade to clear.** Over passthrough, a frame's *alpha* is
   what hides your room, and additive light still writes it: a spark

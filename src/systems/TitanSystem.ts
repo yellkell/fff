@@ -94,6 +94,7 @@ import {
   strikePoint,
   windupOffset,
 } from '../titans/strike.js';
+import { spring, springVec } from '../titans/spring.js';
 import { type WeakPart, WeakCycle } from '../titans/weak.js';
 import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { orbitingBall } from './FireballSystem.js';
@@ -113,6 +114,11 @@ interface Arm extends ArmChain {
   /** Where its fist is, world, now and last frame. */
   at: Vector3;
   was: Vector3;
+  /** Where the fist is headed, root space, and how fast: a spring
+   *  (titans/spring.ts) between blows, so it carries through and settles
+   *  home instead of snapping back. */
+  aim: Vector3;
+  aimVel: Vector3;
 }
 
 /** One arm's part in a blow (a clap has two). */
@@ -122,8 +128,9 @@ interface Swing {
   from: Vector3;
   /** Its side, as a world direction. */
   outward: Vector3;
-  /** Where the fist was when the blow ended, for the way home. */
-  home: Vector3;
+  /** Where the fist was as the windup began, root space: it draws back
+   *  from there, wherever the last move left it. */
+  start: Vector3;
 }
 
 interface Act {
@@ -256,6 +263,12 @@ const SWING: Record<StrikePath, number> = {
   decree: 0,
   orb: 0,
 };
+/** How much of a fist's speed rides on into the way home (toRecover). */
+const RECOIL = { whiff: 0.45, landed: 0.2, blocked: -0.35 };
+/** How the body moves (spring stiffness, rad/s; titans/spring.ts): a fist
+ *  coming home; the lunge driving in on a blow, and settling back; turning
+ *  to face you; rocking back on a hit. */
+const SPRING = { fist: 5, lungeIn: 16, lungeOut: 4, yaw: 3.5, pitch: 12 };
 const BOLTS = 20;
 const PARTS: readonly WeakPart[] = ['head', 'core', 'low', 'shoulderL', 'shoulderR'];
 
@@ -271,6 +284,12 @@ export class TitanSystem extends createSystem({}) {
   private gap = 0;
   private stagger = 0;
   private lunge = 0;
+  private readonly lungeV: [number] = [0];
+  private readonly yawV: [number] = [0];
+  private pitch = 0;
+  private readonly pitchV: [number] = [0];
+  /** The sway's size: damped down while it's committed to a blow. */
+  private swayK = 1;
   private yaw = Math.PI;
   /** A spinning blow's turn, on top of the yaw (radians about +y). */
   private spin = 0;
@@ -613,7 +632,7 @@ export class TitanSystem extends createSystem({}) {
         i,
         from: new Vector3(),
         outward: new Vector3(this.arms[i].side, 0, 0).transformDirection(root.matrixWorld),
-        home: new Vector3(),
+        start: this.arms[i].aim.clone(),
       })),
       lunge: 0,
       locked: false,
@@ -641,11 +660,14 @@ export class TitanSystem extends createSystem({}) {
     this.act = a;
   }
 
-  private toRecover(a: Act): void {
+  /** The blow is over. `carry` is how much of the fist's speed rides on
+   *  into the way home: most of it past a miss, less into you, and a
+   *  blocked fist rebounds (negative). */
+  private toRecover(a: Act, carry = RECOIL.whiff): void {
     a.stage = 'recover';
     a.t = 0;
     a.turnFrom = a.turn;
-    for (const sw of a.swings) sw.home.copy(this.arms[sw.i].at);
+    for (const sw of a.swings) this.arms[sw.i].aimVel.multiplyScalar(carry);
     this.beamCore.visible = this.beamHalo.visible = this.aimLine.visible = this.sweepLine.visible = false;
     this.rig!.eyeFx.visible = false;
   }
@@ -691,7 +713,7 @@ export class TitanSystem extends createSystem({}) {
         // The shockwave a little way out along the blow, not in your eyes.
         fx.impacts?.hit(_v.copy(from).sub(to).setLength(0.35).add(to), NEON.danger, 0.4, 1);
         sfx('hitTaken');
-        this.toRecover(a);
+        this.toRecover(a, RECOIL.landed);
       }
     }
   }
@@ -713,7 +735,7 @@ export class TitanSystem extends createSystem({}) {
     this.chainVel += 4;
     a.lunge = 0;
     a.blocked = true;
-    this.toRecover(a);
+    this.toRecover(a, RECOIL.blocked);
   }
 
   /* ── the eye beams ─────────────────────────────────────────────────── */
@@ -1101,12 +1123,16 @@ export class TitanSystem extends createSystem({}) {
     const striking = a && a.stage !== 'windup';
     const fists = a && isFist(a.def);
 
-    // Face you, except mid-blow: a committed blow doesn't follow your dodge.
+    // Face you, except mid-blow: a committed blow doesn't follow your dodge
+    // (what turn it had bleeds off), and it comes round to you again after.
     if (!striking) {
       const want = Math.atan2(-(_head.x - root.position.x), -(_head.z - root.position.z));
       let dy = want - this.yaw;
       dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      this.yaw += dy * Math.min(1, delta * 3);
+      this.yaw = spring(this.yaw, this.yawV, this.yaw + dy, SPRING.yaw, delta);
+    } else {
+      this.yawV[0] *= Math.exp(-10 * delta);
+      this.yaw += this.yawV[0] * delta;
     }
 
     // The lunge in behind a blow, and back.
@@ -1120,11 +1146,12 @@ export class TitanSystem extends createSystem({}) {
       a.to.copy(_head);
       this.planLunge(a);
     }
-    const rate = a && a.stage === 'strike' ? 10 : 3;
-    this.lunge += (lungeWant - this.lunge) * Math.min(1, delta * rate);
+    const stiff = a && a.stage === 'strike' ? SPRING.lungeIn : SPRING.lungeOut;
+    this.lunge = spring(this.lunge, this.lungeV, lungeWant, stiff, delta);
 
     this.flinch = Math.max(0, this.flinch - delta * 2);
-    const sway = Math.sin(this.t * 0.55) * FIGHT.sway * (striking ? 0.3 : 1);
+    this.swayK += ((striking ? 0.3 : 1) - this.swayK) * Math.min(1, delta * 2.5);
+    const sway = Math.sin(this.t * 0.55) * FIGHT.sway * this.swayK;
     const fwdX = -Math.sin(this.yaw);
     const fwdZ = -Math.cos(this.yaw);
     root.position.set(sway * Math.cos(this.yaw) + fwdX * this.lunge, Math.sin(this.t * 1.4) * FIGHT.bob, -STAGE.distance + fwdZ * this.lunge);
@@ -1141,7 +1168,10 @@ export class TitanSystem extends createSystem({}) {
       this.spin = Math.atan2(Math.sin(this.spin), Math.cos(this.spin));
       this.spin -= this.spin * Math.min(1, delta * 6);
     }
-    root.rotation.set(-0.18 * this.flinch - (this.stagger > 0 ? 0.08 : 0), this.yaw + this.spin, 0);
+    // Rocked back by a hit or a block, and easing upright again.
+    const pitchWant = -0.18 * this.flinch - (this.stagger > 0 ? 0.08 : 0);
+    this.pitch = spring(this.pitch, this.pitchV, pitchWant, SPRING.pitch, delta);
+    root.rotation.set(this.pitch, this.yaw + this.spin, 0);
     root.updateMatrixWorld(true);
 
     // The arms.
@@ -1152,8 +1182,14 @@ export class TitanSystem extends createSystem({}) {
       const target = this.fistTarget(i, sw, _v);
       _local.copy(target);
       root.worldToLocal(_local);
+      // A blow's windup and travel are exact (it lands where it's judged);
+      // everything else, the way home and the guard, rides the spring.
+      if (sw && a && a.stage !== 'recover' && this.phase === 'fight') {
+        if (delta > 1e-5) arm.aimVel.copy(_local).sub(arm.aim).divideScalar(delta);
+        arm.aim.copy(_local);
+      } else springVec(arm.aim, arm.aimVel, _local, SPRING.fist, delta);
       const pole = _w.set(arm.side * 0.8, -0.5, 0.35);
-      const ext = reach(arm, _local, pole, FIGHT.telescope * this.look.scale);
+      const ext = reach(arm, arm.aim, pole, FIGHT.telescope * this.look.scale);
       arm.rod.visible = ext > 0.004;
       arm.rod.scale.set(1, Math.max(ext, 1e-4), 1);
       arm.rod.position.y = -arm.fore;
@@ -1250,8 +1286,9 @@ export class TitanSystem extends createSystem({}) {
     if (!a || !sw || this.phase !== 'fight') return out.copy(guard);
     const d = a.def;
     if (a.stage === 'windup') {
+      // Drawn back from wherever it was (the last blow may not be home yet).
       this.windupPoint(sw, d.path, out);
-      return out.lerpVectors(guard, out, ease(a.t / (d.windup * 0.7)));
+      return out.lerpVectors(root.localToWorld(_cock.copy(sw.start)), out, ease(a.t / (d.windup * 0.7)));
     }
     if (a.stage === 'strike' && isSpin(d.path)) {
       // Riding the turn round on an arc about its spine, landing on you as
@@ -1263,7 +1300,8 @@ export class TitanSystem extends createSystem({}) {
     if (a.stage === 'strike') {
       return strikePoint(d.path, sw.from, a.to, sw.outward, a.t / d.strike, out);
     }
-    return out.lerpVectors(sw.home, guard, ease(a.t / d.recover));
+    // Recovering: home to the guard (the spring in pose() carries it there).
+    return out.copy(guard);
   }
 
   /* ── in and out ────────────────────────────────────────────────────── */
@@ -1330,6 +1368,8 @@ export class TitanSystem extends createSystem({}) {
         radius: Math.max(0.08, (Math.max(size.x, size.y, size.z) / 2) * 0.8),
         at: new Vector3(),
         was: new Vector3(),
+        aim: new Vector3(),
+        aimVel: new Vector3(),
       };
     });
     for (const m of this.clipped) m.clippingPlanes = [this.clip];
@@ -1415,8 +1455,14 @@ export class TitanSystem extends createSystem({}) {
     this.last = null;
     this.gap = 1.2;
     this.stagger = 0;
-    this.lunge = 0;
+    this.lunge = this.lungeV[0] = this.yawV[0] = this.pitch = this.pitchV[0] = 0;
+    this.swayK = 1;
     this.fightTime = 0;
+    // Fists start on the guard, still.
+    for (let i = 0; i < this.arms.length; i++) {
+      rig.root.worldToLocal(this.fistTarget(i, null, this.arms[i].aim));
+      this.arms[i].aimVel.set(0, 0, 0);
+    }
     Object.assign(titanStats, { name: this.look.name, hp: 1, act: null, enraged: false, decreeGap: null, hitsTaken: 0, blocks: 0, hitsLanded: 0, armourHits: 0, bolts: 0, orbsShot: 0 });
     this.enter('rising');
     this.printTo(0);

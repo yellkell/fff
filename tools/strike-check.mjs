@@ -6,7 +6,9 @@
  * rig's conventions; out of reach it telescopes, then stops short on the
  * line; the elbow bends toward its pole; every strike path starts at the
  * windup and passes through your head; a spinning blow turns its back on
- * you, rides the turn in and lands on you; and the grammar never repeats a move.
+ * you, rides the turn in and lands on you; the grammar never repeats a move;
+ * and the spring the body and fists move on eases, carries through and
+ * settles, the same at any frame rate.
  *
  *   npm run check:strike
  */
@@ -14,6 +16,7 @@
 import { Group, Vector3 } from 'three';
 import { reach } from '../src/titans/ik.ts';
 import { armsOf, isSpin, lob, pickStrike, segmentDistance, SPIN, spinPoint, spinTurn, strikePoint, windupOffset } from '../src/titans/strike.ts';
+import { spring, springVec } from '../src/titans/spring.ts';
 import { WeakCycle } from '../src/titans/weak.ts';
 import { DECREE, laneXs, planDecree } from '../src/titans/decree.ts';
 import { BOUTS, freshCareer, LAST, record, stakes } from '../src/game/career.ts';
@@ -287,6 +290,51 @@ const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
   check('a decree fires all but two lanes and leaves a gap a head fits in', worstBand >= 0.25, `safe band ${(worstBand * 100).toFixed(0)} cm`);
   check('the gap is never where you already stand', nearest >= DECREE.away - 1e-9, `nearest ${(nearest * 100).toFixed(0)} cm away`);
   check('the gap is always well on the pad', offPad === 0);
+}
+
+// THE SPRING (titans/spring.ts): the body and fists ease, they never snap.
+{
+  // From rest onto a target: no overshoot, settled in about 4.7/omega s,
+  // and the same path whatever the frame rate.
+  const run = (dt, secs, omega, x0, v0, target) => {
+    let x = x0;
+    const v = [v0];
+    let over = 0;
+    let maxStep = 0;
+    for (let t = 0; t < secs - 1e-9; t += dt) {
+      const nx = spring(x, v, target, omega, dt);
+      maxStep = Math.max(maxStep, Math.abs(nx - x) / dt);
+      x = nx;
+      over = Math.max(over, (x - target) * Math.sign(target - x0));
+    }
+    return { x, v: v[0], over, maxStep };
+  };
+  const a = run(1 / 90, 4.7 / 6.5, 6.5, 0, 0, 1);
+  const b = run(1 / 30, 4.7 / 6.5, 6.5, 0, 0, 1);
+  const c = run(0.25, 4.7 / 6.5 + 0.03, 6.5, 0, 0, 1);
+  check('a spring from rest never overshoots', a.over <= 1e-9 && b.over <= 1e-9 && c.over <= 1e-9, `${a.over}`);
+  check('it settles in about 4.7/omega seconds', Math.abs(a.x - 1) < 0.06, `${(a.x * 100).toFixed(1)}% there`);
+  check('its path doesn’t depend on the frame rate', Math.abs(a.x - b.x) < 1e-6, `90 Hz ${a.x.toFixed(6)}, 30 Hz ${b.x.toFixed(6)}`);
+  // Moving fast when its target jumps back: it carries on a little, turns
+  // with no jump in speed, and comes home.
+  let pos = 0;
+  const v = [5];
+  let peak = 0;
+  let prevV = v[0];
+  let jerk = 0;
+  for (let i = 0; i < 180; i++) {
+    pos = spring(pos, v, -0.2, 6.5, 1 / 90);
+    peak = Math.max(peak, pos);
+    jerk = Math.max(jerk, Math.abs(v[0] - prevV));
+    prevV = v[0];
+  }
+  check('a moving fist carries through, then comes home', peak > 0.1 && peak < 0.5 && Math.abs(pos + 0.2) < 0.01, `on ${(peak * 100).toFixed(0)} cm, home to ${(pos * 100).toFixed(1)} cm`);
+  // (The old way home stopped a 5 m/s fist dead in one frame.)
+  check('it brakes, never stops dead', jerk < 0.2 * 5, `largest change ${jerk.toFixed(2)} m/s in a 90 Hz frame`);
+  const p = new Vector3(0, 0, 0);
+  const pv = new Vector3(0, 0, 0);
+  for (let i = 0; i < 200; i++) springVec(p, pv, new Vector3(0.3, -0.2, 0.5), 6.5, 1 / 72);
+  check('a point follows on every axis', p.distanceTo(new Vector3(0.3, -0.2, 0.5)) < 1e-3, p.toArray().map((n) => n.toFixed(3)).join(', '));
 }
 
 const bad = results.filter((r) => !r).length;
