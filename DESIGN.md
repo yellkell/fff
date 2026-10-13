@@ -509,11 +509,13 @@ once you've won the one you just fought:
   the fight.
 - **The belts** (`ui/belt.ts`): drawn like the titans, dark glass with lit
   edge tubes and halos: a strap bowed back at the ends, a stitch line, an
-  octagonal centre plate with a ring and a glowing stone, and four side
-  plates, two either side, set into the strap: inside its height, every
+  octagonal centre plate with a ring and a glowing stone, and either side
+  of it an oval medallion (an engraved ring inside its rim) and a smaller
+  round stud further out, strap showing between, with polished metal faces
+  and a stone each. They're set into the strap: inside its height, every
   point bowed back with it (a flat plate stood up to 2 cm proud of the
-  curve at its outer edge, and read as floating), with a tinted face and
-  its stone on that face. A belt's name under it turns white when it's
+  curve at its outer edge, and read as floating). (Four square plates with
+  dark faces read as windows in a strip of film.) A belt's name under it turns white when it's
   won (the label used to redraw only when its text changed, and a belt's
   name doesn't).
 - **The rack:** all four over the console's top edge. A win lifts the
@@ -643,17 +645,33 @@ it; its second line says START HERE until you've graduated once
      AGAIN and TITANS (your next bout).
   A lesson waiting on you replays its line after 14 s, then "No rush.
   Whenever you're ready.", then waits quietly.
-- **THE RUST BUCKET** (`duel/rival.ts`, `skin: 'rust'`): the rival's body
-  made over as an old sparring machine nobody's oiled. Rust-orange lines
-  that burn less white than new neon; two odd eye lamps where the visor
-  was, the big one with a bad bulb that stutters out now and then; a bent
-  antenna with a blinking bulb; a ring of rivets and a mouth grille;
-  verdigris patch plates riveted on skew over the chest; a pressure dial
-  whose needle never settles; a stovepipe up behind the right shoulder
-  (it always faces you, so lower on its back would never be seen) puffing
-  smoke; verdigris cuffs on the gloves. Before EMBER names him he stands
-  slumped, head down, gloves hanging, lamps dim; then he groans awake
-  (`rustWake`) and puts his guard up.
+- **THE RUST BUCKET** (`duel/rust.ts`, the rival's `skin: 'rust'`): the
+  rival puppet wearing its own body, an old boiler on legs nobody's oiled.
+  The same head, hands and hit spheres drive it, so the judge is the
+  same. All the titans' neon, in rust orange that burns less white than
+  new neon, with verdigris and tired amber bulbs:
+  - *Head:* a tin can with a riveted lid; two odd eye lamps, the big
+    one's bulb stuttering out now and then; a mouth grille; a bent antenna
+    with a blinking bulb; a ribbed collar down into the boiler.
+  - *Body:* a bellied boiler barrel (ten-sided, lidded) that runs on 20 cm
+    below the hit spheres' hips, so the legs are stocky, not stilts. Two
+    riveted hoops, rust run down from the top one; a furnace door in its
+    belly (porthole, grate, rivets) whose fire is banked while he's
+    slumped and roars as he winds up a throw; a pressure dial whose
+    needle never settles and a verdigris patch on skew, each flat on the
+    face beside the front; two smokestacks behind the shoulders (he always
+    faces you, so lower on his back would never be seen), puffing in turn.
+  - *Arms:* ball shoulders under riveted pauldrons, plated upper arms,
+    elbow balls, a bare piston rod out of the elbow into a heavy forearm
+    sleeve; elbows tucked closer than the boxer's; square fists with a
+    row of knuckle rivets and a verdigris cuff.
+  - *Legs:* a riveted hip block, ball hips, plated thighs and shins on
+    knee balls that bend toward you, square boots with a toe cap. The
+    boots stay planted; when he strafes 11 cm off one it steps (one at a
+    time, a quarter second, lifted), and a duck squats him.
+  Before EMBER names him he stands slumped, head down, fists hanging,
+  lamps dim and the fire banked; then he groans awake (`rustWake`) and
+  puts his guard up.
 - **Music:** FF2's tutorial track, the drums cut of "Breakcore", under
   her lessons and the fight; the victory sting if he goes down.
 - **Checks:** `check:smoke` plays it from TUTORIAL to graduation with the

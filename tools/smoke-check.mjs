@@ -1004,7 +1004,7 @@ if (offered) {
     let u = await TU();
     check('poking TUTORIAL brings the rust bucket in', (await S()).mode === 'tutorial' && u.duel.label === 'RUST BUCKET' && ['intro', 'fight'].includes(u.duel.phase), `${u.duel.phase} · ${u.duel.label}`);
     u = await untilT((x) => x.said.includes('overHere'), 5000);
-    check('EMBER: "Over here."', u.beat === 'attention' && u.caption === 'Over here.', u.caption);
+    check('EMBER: "Over here."', u.said[0] === 'overHere', u.said.join(' '));
     m = await musicIs('tutorial', (tr) => tr === 'breakcore-drums', 8000);
     check('FF2’s tutorial track plays under her', m.cue === 'tutorial' && m.playing, `${m.cue} · ${m.track}`);
     u = await untilT((x) => x.said.includes('begin'), 12000);

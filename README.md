@@ -180,14 +180,20 @@ rebuilt for the headsets that ship without controllers. **Read
   on a cyan cue line beneath, never in her mouth. The lessons can't hurt
   you, and her voice comes from where she is.
 
-  **The rust bucket**, made over (`src/duel/rival.ts`, `skin: 'rust'`): an
-  old sparring machine nobody's oiled in years. Rust-orange lines, two odd
-  eye lamps (one with a bad bulb that stutters), a bent antenna blinking
-  on his crown, a ring of rivets, a mouth grille, verdigris patch plates
-  riveted on skew over his chest, a pressure dial whose needle never
-  settles, a stovepipe behind his shoulder puffing smoke, and verdigris
-  cuffs on his gloves. He stands slumped and dark until EMBER names him
-  ("See this rust bucket?"), then groans awake.
+  **The rust bucket** (`src/duel/rust.ts`): an old boiler on legs that
+  nobody's oiled in years, in rust-orange neon. A tin-can head with a
+  riveted lid, two odd eye lamps (the big one's bulb stutters), a mouth
+  grille and a bent antenna blinking on top, on a ribbed collar. A
+  bellied boiler barrel with two riveted hoops, rust running down from
+  the top one, a furnace door in its belly whose fire flares as he winds
+  up a throw, a pressure dial whose needle never settles, a verdigris
+  patch riveted on skew, and two smokestacks behind his shoulders,
+  puffing. Jointed arms: ball shoulders under riveted pauldrons, plated
+  upper arms, a bare piston rod into a heavy forearm sleeve, square fists
+  with knuckle rivets. Stocky legs on a hip block, knees that bend toward
+  you, and square boots that stay planted and step when he strafes off
+  them. He stands slumped and dark until EMBER names him ("See this rust
+  bucket?"), then groans awake.
 
 - **1V1, against the bot** (`src/systems/DuelSystem.ts`, DESIGN §4.1),
   off the console until it comes back over the relay (the checks still
@@ -225,9 +231,10 @@ rebuilt for the headsets that ship without controllers. **Read
      you shoot it down with a fireball, palm it, or step late. Twenty hits.
 
   Your belts hang on a rack over the console: lit if they're yours, a
-  ghost if not yet, red if stripped. Each has four side plates, two either
-  side of its centre plate, set into the strap and curving with it, and
-  its name under it turns white as it's won. Win one and it comes off the rack and
+  ghost if not yet, red if stripped. Either side of its centre plate it
+  has an oval medallion and a smaller round stud in polished metal, set
+  into the strap and curving with it, and its name under it turns white
+  as it's won. Win one and it comes off the rack and
   is held up over the console to a fanfare. Your career is saved.
 
 All five titans fight, the tutorial teaches you on the rust bucket, and
