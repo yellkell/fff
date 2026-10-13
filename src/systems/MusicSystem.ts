@@ -1,7 +1,7 @@
 /**
  * Picks the music (audio/music.ts) from what you're doing, every frame:
  * the console's track at home, "Aim" in practice, a battle track in a titan
- * fight or a duel. When a titan (or a duel) falls to you the victory sting plays out over the
+ * fight or a duel, FF2's tutorial track under EMBER's lessons. When a titan (or a duel) falls to you the victory sting plays out over the
  * results before the console's track comes back; a fight you lost goes
  * quiet instead.
  */
@@ -27,6 +27,10 @@ export class MusicSystem extends createSystem({}) {
       // A duel's score is the titans' battle pool; the verdict gets the sting.
       const over = duelStats.phase === 'matchOver' || duelStats.phase === 'outro';
       want = over ? (duelStats.rounds[0] > duelStats.rounds[1] ? 'victory' : 'silence') : 'titans';
+    } else if (game.mode === 'tutorial') {
+      // Her lessons and the fight, then the sting if he goes down.
+      const over = duelStats.phase === 'roundOver' || duelStats.phase === 'outro';
+      want = over ? (duelStats.rivalHp <= 0 ? 'victory' : 'silence') : 'tutorial';
     } else want = 'home';
 
     // Coming home from a fight: the sting rings on over the results (up to

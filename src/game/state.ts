@@ -4,16 +4,19 @@
  *   home      the console is up; no fireballs, no targets.
  *   practice  the target rings; the console has sunk away.
  *   titans    a titan fight (TitanSystem).
- *   duel      1V1 against the bot (DuelSystem).
+ *   duel      1V1 against the bot (DuelSystem; off the console for now,
+ *             the relay brings it back).
+ *   tutorial  EMBER's lessons on the rust bucket (TutorialSystem, riding
+ *             DuelSystem's bot).
  */
 
-export type Mode = 'home' | 'practice' | 'titans' | 'duel';
+export type Mode = 'home' | 'practice' | 'titans' | 'duel' | 'tutorial';
 
 import type { Outcome } from './career.js';
 
 export interface FightResult {
   /** Which kind of fight it was: REMATCH and NEXT go back to the same kind. */
-  mode: 'titans' | 'duel';
+  mode: 'titans' | 'duel' | 'tutorial';
   /** Who you fought: a titan's name, or the bot's rung (ROOKIE…). */
   titan: string;
   won: boolean;
@@ -30,6 +33,8 @@ export const game = {
   mode: 'home' as Mode,
   /** The wrist panel is open: your hands are poking, not fighting. */
   wristOpen: false,
+  /** A panel in the fight is up for poking (the tutorial's BEGIN). */
+  panelUp: false,
   /** Bumped on every recentre, so anything placed from your head re-places. */
   recentred: 0,
   /** Your health in a fight, 0–1 (1 outside one). */
@@ -54,5 +59,5 @@ export function setMode(mode: Mode): void {
  *  throw or recall a ball. (A pointing hand has three fingers curled,
  *  which sits right in the fist reader's grey zone.) */
 export function handsOnMenu(): boolean {
-  return game.mode === 'home' || game.wristOpen;
+  return game.mode === 'home' || game.wristOpen || game.panelUp;
 }

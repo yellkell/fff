@@ -51,6 +51,13 @@ const GROUPS: { title: string; cues: Cue[] }[] = [
     ],
   },
   {
+    title: 'TUTORIAL',
+    cues: [
+      { name: 'emberChime', label: 'Ember', what: 'over here' },
+      { name: 'rustWake', label: 'Rust bucket', what: 'he comes to as she names him' },
+    ],
+  },
+  {
     title: 'THE TITAN',
     cues: [
       { name: 'titanPrint', label: 'Print in', what: 'it builds in your room' },

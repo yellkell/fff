@@ -4,17 +4,19 @@
  * at chest height, tilted to face you like a lectern, and sinks back into
  * the floor when a fight starts. Always the same spot, always in reach.
  *
- * Three cards, nothing else: TITANS, 1V1, PRACTICE. Each is a station in
- * THE CONSTELLATION later (DESIGN §6); the console is the solo version of
- * that room. A card for a mode that isn't built yet stays on the panel,
- * locked, and says so when poked, so the shape of the game is there from
- * day one.
+ * Three cards, nothing else: TITANS, TUTORIAL, PRACTICE. TUTORIAL is
+ * EMBER's lessons on the rust bucket (TutorialSystem); it took the place of
+ * 1V1 against the bot, which comes back over the relay. Each card is a
+ * station in THE CONSTELLATION later (DESIGN §6); the console is the solo
+ * version of that room. A card for a mode that isn't built yet stays on
+ * the panel, locked, and says so when poked, so the shape of the game is
+ * there from day one.
  *
  * After a fight it comes back up on its RESULTS face: who won and how
  * fast, then REMATCH, NEXT and HOME, same three places as the cards you
  * just used. After a titan, NEXT FIGHT (the next bout of your career,
  * game/career.ts, open once you've won this one); after a duel, NEXT BOT,
- * a rung up the ladder.
+ * a rung up the ladder; after the tutorial, AGAIN and TITANS.
  *
  * Over it, THE BELT RACK: every belt on your career, lit if it's yours, a
  * ghost if it isn't yet, red if it was stripped from you. Win one and it
@@ -31,6 +33,7 @@ import { BELTS, type BeltId, beltOf, BOUTS, career } from '../game/career.js';
 import { type FightResult, game, setMode } from '../game/state.js';
 import { playable } from '../titans/fights.js';
 import { TITANS } from '../titans/roster.js';
+import { tutorialDone } from '../tutorial/progress.js';
 import { FONT, fitFont, frame, glass, glowText, textPlane, type TextPlane } from '../ui/kit.js';
 import { BeltModel } from '../ui/belt.js';
 import { addButton, PokeButton } from '../ui/poke.js';
@@ -46,6 +49,12 @@ const RACK_SCALE = 0.26;
 const SHOW_SCALE = 0.7;
 /** An award: up off the rack, held up, back down (seconds). */
 const AWARD = { up: 0.6, hold: 3.2, down: 0.6 };
+
+/** EMBER's colour, for her card. */
+const EMBER_GOLD = 0xffc04d;
+
+/** The TUTORIAL card's second line: an invitation until you've done it. */
+const tutorSub = (): string => (tutorialDone() ? 'WITH EMBER' : 'START HERE');
 
 /** Your next bout, as a card's second line. */
 const boutLine = (i: number): string => {
@@ -75,7 +84,7 @@ export class ConsoleSystem extends createSystem({}) {
   private title!: TextPlane;
   private readonly cards: PokeButton[] = [];
   private titansCard!: PokeButton;
-  private duelCard!: PokeButton;
+  private tutorCard!: PokeButton;
   private nextCard!: PokeButton;
   private rematchCard!: PokeButton;
   private readonly homeFace = new Group();
@@ -110,7 +119,7 @@ export class ConsoleSystem extends createSystem({}) {
     const gap = 0.02;
     const defs = [
       { id: 'titans', label: 'TITANS', sub: boutLine(career.next), accent: NEON.ember, locked: '' },
-      { id: '1v1', label: '1V1', sub: `BOT · ${BOT_LADDER[0].label}`, accent: NEON.magenta, locked: '' },
+      { id: 'tutorial', label: 'TUTORIAL', sub: tutorSub(), accent: EMBER_GOLD, locked: '' },
       { id: 'practice', label: 'PRACTICE', sub: 'TARGET RINGS', accent: NEON.lime, locked: '' },
     ];
     defs.forEach((d, i) => {
@@ -125,7 +134,7 @@ export class ConsoleSystem extends createSystem({}) {
           onPress: () => {
             if (d.id === 'practice') setMode('practice');
             if (d.id === 'titans') toBout(career.next);
-            if (d.id === '1v1') setMode('duel');
+            if (d.id === 'tutorial') setMode('tutorial');
           },
         }),
       );
@@ -137,7 +146,7 @@ export class ConsoleSystem extends createSystem({}) {
       this.homeFace.add(b.root);
       this.cards.push(b);
       if (d.id === 'titans') this.titansCard = b;
-      if (d.id === '1v1') this.duelCard = b;
+      if (d.id === 'tutorial') this.tutorCard = b;
     });
 
     // The results face: the same three places.
@@ -147,7 +156,11 @@ export class ConsoleSystem extends createSystem({}) {
         label: 'REMATCH',
         sub: '',
         accent: NEON.ember,
-        press: () => (game.result?.mode === 'duel' ? setMode('duel') : toBout(game.result?.bout ?? game.bout)),
+        press: () => {
+          const r = game.result;
+          if (r?.mode === 'duel' || r?.mode === 'tutorial') return setMode(r.mode);
+          toBout(r?.bout ?? game.bout);
+        },
       },
       {
         id: 'next',
@@ -155,6 +168,7 @@ export class ConsoleSystem extends createSystem({}) {
         sub: '',
         accent: NEON.magenta,
         press: () => {
+          // After a duel, a rung up; after a titan or the tutorial, your career.
           if (game.result?.mode !== 'duel') return toBout(career.next);
           game.rung++;
           setMode('duel');
@@ -244,8 +258,12 @@ export class ConsoleSystem extends createSystem({}) {
   private showFace(r: FightResult | null): void {
     this.shownResult = r;
     this.titansCard.setText('TITANS', boutLine(career.next));
-    this.duelCard.setText('1V1', `BOT · ${BOT_LADDER[game.rung]?.label ?? BOT_LADDER[0].label}`);
-    if (r?.mode === 'duel') {
+    this.tutorCard.setText('TUTORIAL', tutorSub());
+    if (r?.mode === 'tutorial') {
+      this.rematchCard.setText('AGAIN', 'WITH EMBER');
+      this.nextCard.setText('TITANS', boutLine(career.next));
+      this.nextCard.setLocked(!playable(TITANS[BOUTS[career.next]?.titan]?.name));
+    } else if (r?.mode === 'duel') {
       const next = BOT_LADDER[game.rung + 1];
       this.rematchCard.setText('REMATCH', 'SAME BOT');
       this.nextCard.setText('NEXT BOT', next?.label ?? 'TOP RUNG');
@@ -262,7 +280,13 @@ export class ConsoleSystem extends createSystem({}) {
     const o = r?.mode === 'titans' ? r.outcome : undefined;
     const belt = o?.won ?? o?.kept ?? o?.lost ?? null;
     if (o && belt) this.award = { id: belt, kind: o.won ? 'won' : o.kept ? 'kept' : 'lost', t: 0 };
-    let text = !r ? 'FIRE FIGHT FLUX' : r.mode === 'duel' ? (r.won ? `YOU BEAT ${r.titan}` : `${r.titan} WINS`) : `${r.titan} ${r.won ? 'FELLED' : 'WINS'}`;
+    let text = !r
+      ? 'FIRE FIGHT FLUX'
+      : r.mode === 'duel'
+        ? r.won ? `YOU BEAT ${r.titan}` : `${r.titan} WINS`
+        : r.mode === 'tutorial'
+          ? r.won ? 'YOU GRADUATED' : `${r.titan} WINS`
+          : `${r.titan} ${r.won ? 'FELLED' : 'WINS'}`;
     if (o?.won) text = beltOf(o.won).champion;
     else if (o?.kept) text = `${beltOf(o.kept).name} BELT RETAINED`;
     else if (o?.lost) text = `${beltOf(o.lost).name} BELT LOST`;
@@ -281,21 +305,24 @@ export class ConsoleSystem extends createSystem({}) {
   private showRack(): void {
     for (const belt of BELTS) {
       const s = this.slots.get(belt.id)!;
-      if (this.award?.id === belt.id && this.award.kind !== 'lost') continue; // it's being held up
       const held = career.held.includes(belt.id);
       // Stripped: you've been past the bout that wins it, and don't hold it.
       const wonAt = BOUTS.findIndex((b) => b.wins === belt.id);
       const stripped = !held && career.next > wonAt;
-      s.model.setLevel(held ? 1 : 0.1, stripped);
+      // A belt being held up keeps its light; its label still goes white now.
+      if (this.award?.id !== belt.id || this.award.kind === 'lost') s.model.setLevel(held ? 1 : 0.1, stripped);
       const def = career.defences[belt.id] ?? 0;
       const text = `${belt.name}${def > 0 ? ` · ${def} DEF` : ''}`;
-      if (text === s.labelText) continue;
-      s.labelText = text;
+      // Redrawn when its colour changes too: a belt won keeps its name, and
+      // keyed on the text alone its label stayed dimmed after the win.
+      const key = `${text}|${held ? 'held' : stripped ? 'stripped' : 'ghost'}`;
+      if (key === s.labelText) continue;
+      s.labelText = key;
       s.label.draw((g, w, h) => {
         g.textAlign = 'center';
         g.textBaseline = 'middle';
         fitFont(g, text, 800, h * 0.62, w * 0.96);
-        g.fillStyle = held ? 'rgba(233,236,255,0.85)' : stripped ? '#ff8aa0' : 'rgba(233,236,255,0.35)';
+        g.fillStyle = held ? '#ffffff' : stripped ? '#ff8aa0' : 'rgba(233,236,255,0.35)';
         g.fillText(text, w / 2, h / 2);
       });
     }
@@ -358,6 +385,7 @@ export class ConsoleSystem extends createSystem({}) {
     if (!r) return HINT;
     const m = Math.floor(r.time / 60);
     const sec = Math.floor(r.time % 60).toString().padStart(2, '0');
+    if (r.mode === 'tutorial') return r.won ? `THE RUST BUCKET DOWN IN ${m}:${sec}` : 'EMBER WILL BE THERE · GO AGAIN';
     if (r.mode === 'duel') {
       const [mine, theirs] = r.rounds ?? [0, 0];
       return r.won ? `ROUNDS ${mine}–${theirs} IN ${m}:${sec}` : `ROUNDS ${mine}–${theirs} · GO AGAIN`;

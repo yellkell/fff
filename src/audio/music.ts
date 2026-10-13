@@ -5,6 +5,7 @@
  *   home      "Dusk", the title song, under the console.
  *   practice  "Aim", looped.
  *   titans    one of FF2's battle tracks, never the same one twice running.
+ *   tutorial  FF2's tutorial track: the drums cut of "Breakcore", looped.
  *   victory   FF2's victory sting as a titan falls to you, then home.
  *   silence   a fight you lost goes quiet before the console comes back.
  *
@@ -24,6 +25,7 @@
 
 import aimUrl from '../assets/music/aim.mp3?url';
 import duskUrl from '../assets/music/dusk.mp3?url';
+import tutorialUrl from '../assets/music/battle/breakcore-drums.mp3?url';
 import victoryUrl from '../assets/music/victory.mp3?url';
 import { audioContext } from './sfx.js';
 
@@ -32,7 +34,7 @@ const BATTLE: string[] = Object.values(
   import.meta.glob('../assets/music/battle/*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>,
 );
 
-export type MusicCue = 'home' | 'practice' | 'titans' | 'victory' | 'silence';
+export type MusicCue = 'home' | 'practice' | 'titans' | 'tutorial' | 'victory' | 'silence';
 
 /** Target loudness (RMS) per cue: under the effects in a fight, a little
  *  fuller at the console where there's little else to hear. */
@@ -40,6 +42,8 @@ const LOUDNESS: Record<MusicCue, number> = {
   home: 0.09,
   practice: 0.065,
   titans: 0.07,
+  // Under her voice: a little lower than a fight.
+  tutorial: 0.055,
   victory: 0.1,
   silence: 0,
 };
@@ -192,6 +196,9 @@ export function setMusicCue(next: MusicCue): void {
       void start(lastBattle, LOUDNESS.titans, true);
       break;
     }
+    case 'tutorial':
+      void start(tutorialUrl, LOUDNESS.tutorial, true);
+      break;
     case 'victory':
       void start(victoryUrl, LOUDNESS.victory, false);
       break;

@@ -14,6 +14,9 @@
  *   GLOVES   glass with a lit ring and an ember glow. A raised GUARD
  *            burns white-hot: that glove is the shield.
  *
+ * THE RUST BUCKET (EMBER's tutorial, `skin: 'rust'`) is the same puppet
+ * wearing a different body: duel/rust.ts, a boiler on legs.
+ *
  * It's a puppet: whoever drives it (the bot now, a remote player later)
  * hands it a head, two hands and a few flags each frame. Its fade is how it
  * arrives and leaves; every light fades its alpha, never to black (over
@@ -30,7 +33,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  type Quaternion,
+  Quaternion,
   SphereGeometry,
   type Sprite,
   type SpriteMaterial,
@@ -41,12 +44,17 @@ import { BOT, NEON, TITAN_NEON } from '../config.js';
 import { glowSprite } from '../fx/neon.js';
 import { tubes } from '../titans/neon.js';
 import { makeBody, solveBody } from './body.js';
+import { RUST, RustRig } from './rust.js';
 
 /** Upper arm and forearm, metres. */
 const BONE = 0.3;
 const SHOULDER_HALF = 0.19;
+/** How far the rust bucket's barrel runs on below the hit spheres' pelvis. */
+const RIG_DROP = 0.2;
 const HEAD_R = 0.11;
 const UP = new Vector3(0, 1, 0);
+
+export type RivalSkin = 'neon' | 'rust';
 
 const _a = new Vector3();
 const _b = new Vector3();
@@ -54,7 +62,9 @@ const _d = new Vector3();
 const _fwd = new Vector3();
 const _right = new Vector3();
 const _neck = new Vector3();
-const _elbow = new Vector3();
+const _elbows: [Vector3, Vector3] = [new Vector3(), new Vector3()];
+const _shoulders: [Vector3, Vector3] = [new Vector3(), new Vector3()];
+const _spine = new Quaternion();
 const _basis = new Matrix4();
 
 interface Lit {
@@ -84,11 +94,22 @@ export class Rival {
   private fade = 1;
   private hitFlash = 0;
   private readonly line: Color;
+  readonly skin: RivalSkin;
+  /** The rust bucket's body, in place of the boxer's. */
+  private rig: RustRig | null = null;
+  private awake = 1;
 
-  constructor(line = NEON.ember, accent = NEON.hot) {
+  constructor(line: number = NEON.ember, accent: number = NEON.hot, skin: RivalSkin = 'neon') {
+    this.skin = skin;
+    const rust = skin === 'rust';
+    if (rust) {
+      line = RUST.line;
+      accent = RUST.bulb;
+    }
     this.line = new Color(line);
-    this.root.name = 'rival';
-    const edge = this.line.clone().lerp(new Color(NEON.hot), TITAN_NEON.edgeWhite);
+    this.root.name = rust ? 'rust-bucket' : 'rival';
+    // Old iron doesn't burn as white as new neon.
+    const edge = this.line.clone().lerp(new Color(NEON.hot), rust ? 0.12 : TITAN_NEON.edgeWhite);
     const glassMat = (): MeshBasicMaterial =>
       this.track(
         new MeshBasicMaterial({
@@ -97,12 +118,20 @@ export class Rival {
           opacity: TITAN_NEON.bodyOpacity,
         }),
       );
-    const tubeMat = (): MeshBasicMaterial =>
-      this.track(new MeshBasicMaterial({ color: edge, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
-    const haloMat = (): MeshBasicMaterial =>
+    const tubeMat = (color?: number): MeshBasicMaterial =>
       this.track(
         new MeshBasicMaterial({
-          color: this.line,
+          color: color === undefined ? edge : new Color(color).lerp(new Color(NEON.hot), rust ? 0.12 : TITAN_NEON.edgeWhite),
+          transparent: true,
+          blending: AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+        }),
+      );
+    const haloMat = (color?: number): MeshBasicMaterial =>
+      this.track(
+        new MeshBasicMaterial({
+          color: color ?? this.line,
           transparent: true,
           opacity: TITAN_NEON.haloOpacity,
           blending: AdditiveBlending,
@@ -110,6 +139,26 @@ export class Rival {
           toneMapped: false,
         }),
       );
+
+    this.root.add(this.head, this.torso);
+    // The gloves' glow is the guard's and the wind-up's tell, in either body.
+    for (let i = 0; i < 2; i++) {
+      const g = new Group();
+      const glow = this.trackSprite(glowSprite(line, BOT.gloveRadius * 4, 0.55));
+      g.add(glow);
+      this.root.add(g);
+      this.gloves.push({ root: g, glow });
+    }
+    if (rust) {
+      this.rig = new RustRig(
+        { glass: glassMat, edge: tubeMat, halo: haloMat, dot: (c, size, o = 0.9) => this.trackSprite(glowSprite(c, size, o)) },
+        this.root,
+        this.head,
+        this.torso,
+        this.gloves.map((g) => g.root),
+      );
+      return;
+    }
 
     // The head: a glass dome, a lit band round it, a visor across the front.
     this.head.add(new Mesh(new SphereGeometry(HEAD_R, 20, 14), glassMat()));
@@ -133,7 +182,6 @@ export class Rival {
     const eye = this.trackSprite(glowSprite(line, 0.16, 0.7));
     eye.position.set(0, 0.02, -HEAD_R);
     this.head.add(eye);
-    this.root.add(this.head);
 
     // The torso, modelled one metre tall along +y and stretched to the spine.
     const prism = new CylinderGeometry(0.16, 0.11, 1, 8, 1).translate(0, 0.5, 0);
@@ -145,7 +193,6 @@ export class Rival {
     // The shoulder bar.
     const bar = [-SHOULDER_HALF, 0.98, 0, SHOULDER_HALF, 0.98, 0];
     this.torso.add(new Mesh(tubes(bar, 0.012), tubeMat()));
-    this.root.add(this.torso);
 
     // Four bones (upper arm, forearm, each side): a lit core and its halo,
     // unit cylinders stretched between joints every frame.
@@ -158,17 +205,16 @@ export class Rival {
       this.bones.push({ core, halo });
     }
 
-    // The gloves.
-    for (let i = 0; i < 2; i++) {
-      const g = new Group();
-      g.add(new Mesh(new SphereGeometry(BOT.gloveRadius, 14, 10), glassMat()));
-      const ring = new Mesh(new TorusGeometry(BOT.gloveRadius * 1.02, TITAN_NEON.edgeRadius * 1.4, 6, 28), tubeMat());
-      g.add(ring);
-      const glow = this.trackSprite(glowSprite(line, BOT.gloveRadius * 4, 0.55));
-      g.add(glow);
-      this.root.add(g);
-      this.gloves.push({ root: g, glow });
+    // The gloves: glass with a lit ring.
+    for (const g of this.gloves) {
+      g.root.add(new Mesh(new SphereGeometry(BOT.gloveRadius, 14, 10), glassMat()));
+      g.root.add(new Mesh(new TorusGeometry(BOT.gloveRadius * 1.02, TITAN_NEON.edgeRadius * 1.4, 6, 28), tubeMat()));
     }
+  }
+
+  /** The rust bucket slumped and dark (0) or awake (1). */
+  setAwake(k: number): void {
+    this.awake = Math.min(1, Math.max(0, k));
   }
 
   /** Pose the whole body from a head and two hands. */
@@ -191,22 +237,28 @@ export class Rival {
     _neck.y -= HEAD_R + 0.04;
     _d.copy(_neck).sub(pelvis);
     const len = Math.max(0.12, _d.length());
-    this.torso.position.copy(pelvis);
     // Up the spine, its front square to the way the head faces.
     const up = _d.normalize();
+    // The rust bucket's boiler runs on below its hips, onto shorter legs.
+    const drop = this.rig ? RIG_DROP : 0;
+    this.torso.position.copy(pelvis).addScaledVector(up, -drop);
     const back = _b.copy(_fwd).negate().addScaledVector(up, _fwd.dot(up)).normalize();
     _basis.makeBasis(_a.crossVectors(up, back), up, back);
     this.torso.quaternion.setFromRotationMatrix(_basis);
-    this.torso.scale.set(1, len, 1);
+    this.torso.scale.set(1, len + drop, 1);
+
+    _spine.copy(this.torso.quaternion);
 
     for (let i = 0; i < 2; i++) {
       const side = i === 0 ? -1 : 1;
-      const shoulder = _a.copy(_neck).addScaledVector(_right, side * SHOULDER_HALF);
+      const shoulder = _shoulders[i].copy(_neck).addScaledVector(_right, side * SHOULDER_HALF);
       shoulder.y -= 0.03;
       const hand = p.hands[i];
-      this.elbow(shoulder, hand, side, _elbow);
-      this.stretch(this.bones[i * 2], shoulder, _elbow);
-      this.stretch(this.bones[i * 2 + 1], _elbow, hand);
+      this.elbow(shoulder, hand, side, _elbows[i]);
+      if (!this.rig) {
+        this.stretch(this.bones[i * 2], shoulder, _elbows[i]);
+        this.stretch(this.bones[i * 2 + 1], _elbows[i], hand);
+      }
       const g = this.gloves[i];
       g.root.position.copy(hand);
       g.root.quaternion.copy(p.headQuat);
@@ -215,6 +267,11 @@ export class Rival {
       mat.color.set(hot ? NEON.hot : this.line);
       g.glow.scale.setScalar(BOT.gloveRadius * (hot ? 7 : p.winding[i] ? 5.5 : 4));
     }
+    this.rig?.pose(
+      { head: p.head, neck: _neck, pelvis: this.torso.position, spine: _spine, len: len + drop, shoulders: _shoulders, elbows: _elbows, hands: p.hands, fwd: _fwd, right: _right, winding: p.winding },
+      delta,
+      this.awake,
+    );
     this.applyFade();
   }
 
@@ -251,7 +308,8 @@ export class Rival {
     const mid = out.copy(shoulder).addScaledVector(_d.normalize(), dist / 2);
     const bend = Math.sqrt(Math.max(0, BONE * BONE - (dist / 2) ** 2));
     // Down and out, kept square to the arm.
-    _b.set(0, -1, 0).addScaledVector(_right, side * 0.8);
+    // (The rust bucket keeps its heavy arms tucked closer in.)
+    _b.set(0, -1, 0).addScaledVector(_right, side * (this.rig ? 0.4 : 0.8));
     _b.addScaledVector(_d, -_b.dot(_d)).normalize();
     return mid.addScaledVector(_b, bend);
   }

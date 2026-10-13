@@ -6,7 +6,8 @@
  *                 round a waist, a stitch line along it;
  *   the PLATE     an octagon of gold (or silver) in the middle, a ring
  *                 inside it, and a glowing stone at its heart;
- *   SIDE PLATES   two smaller ones either side.
+ *   SIDE PLATES   two either side, set into the strap: an oval medallion
+ *                 and a smaller round stud.
  *
  * About 44 cm across at scale 1, facing +z. `setLevel` dims it to a ghost
  * (a belt you haven't won yet, on the rack) or tints it red (stripped).
@@ -112,28 +113,49 @@ export class BeltModel {
     this.gem.position.z = 0.02;
     this.root.add(this.gem);
 
-    // Side plates: rounded-off rectangles on the strap.
+    // Side plates, two either side of the centre plate: an oval medallion
+    // beside it and a smaller round stud further out, strap showing between,
+    // polished metal faces with a stone each. They sit ON the strap: inside
+    // its height, every point bowed back with it (a flat plate stands up to
+    // 2 cm proud of the curve and reads as floating).
     const side: number[] = [];
+    const lift = 0.003;
+    const z = (x: number): number => bow(x) + lift;
     for (const sx of [-1, 1]) {
-      const cx = sx * 0.135;
-      const z = bow(cx) + 0.008;
-      const hw = 0.032;
-      const hh = 0.04;
-      const c = 0.01;
-      const pts = [
-        [cx - hw + c, hh], [cx + hw - c, hh], [cx + hw, hh - c], [cx + hw, -hh + c],
-        [cx + hw - c, -hh], [cx - hw + c, -hh], [cx - hw, -hh + c], [cx - hw, hh - c],
-      ];
-      for (let k = 0; k < pts.length; k++) {
-        const [x0, y0] = pts[k];
-        const [x1, y1] = pts[(k + 1) % pts.length];
-        side.push(x0, y0, z, x1, y1, z);
+      for (const [at, rx, ry, inner] of [
+        [0.112, 0.026, 0.03, true],
+        [0.172, 0.017, 0.019, false],
+      ] as const) {
+        const cx = sx * at;
+        const n = 20;
+        const ring: [number, number][] = [];
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * Math.PI * 2;
+          ring.push([cx + Math.cos(a) * rx, Math.sin(a) * ry]);
+        }
+        const outline = (scale: number, into: number[]): void => {
+          for (let k = 0; k < n; k++) {
+            const [x0, y0] = ring[k];
+            const [x1, y1] = ring[(k + 1) % n];
+            const p0 = cx + (x0 - cx) * scale;
+            const p1 = cx + (x1 - cx) * scale;
+            into.push(p0, y0 * scale, z(p0) + 0.0005, p1, y1 * scale, z(p1) + 0.0005);
+          }
+        };
+        outline(1, side);
+        // The medallion has an engraved ring inside its rim.
+        if (inner) outline(0.72, side);
+        const fp = [cx, 0, z(cx)];
+        for (const [x, y] of ring) fp.push(x, y, z(x));
+        const face = new BufferGeometry();
+        face.setAttribute('position', new Float32BufferAttribute(fp, 3));
+        face.setIndex(ring.flatMap((_, k) => [0, k + 1, ((k + 1) % n) + 1]));
+        this.root.add(this.glassMesh(face, belt.metal, 0.32));
+        const dot = glowSprite(belt.gem, rx * (inner ? 0.75 : 0.9), 0.9);
+        dot.position.set(cx, 0, z(cx) + 0.002);
+        this.root.add(dot);
+        this.dots.push(dot);
       }
-      // A little gem dot.
-      const dot = glowSprite(belt.gem, 0.02, 0.9);
-      dot.position.set(cx, 0, z + 0.004);
-      this.root.add(dot);
-      this.dots.push(dot);
     }
     this.edges(side, belt.metal, 0.85);
     this.setLevel(1);

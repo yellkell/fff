@@ -19,7 +19,7 @@ import { AdditiveBlending, Color, DoubleSide, Group, Mesh, MeshBasicMaterial, Sh
 import { NEON } from '../config.js';
 import { game } from '../game/state.js';
 import { FONT, frame, glass, glowText, LAYER, textPlane } from '../ui/kit.js';
-import { duelStats } from './DuelSystem.js';
+import { duelStats, duelTutor } from './DuelSystem.js';
 import { titanStats } from './TitanSystem.js';
 
 const SEGMENTS = 18;
@@ -106,7 +106,9 @@ export class VitalsSystem extends createSystem({}) {
     this.t += delta;
     const up =
       (game.mode === 'titans' && (titanStats.phase === 'rising' || titanStats.phase === 'fight')) ||
-      (game.mode === 'duel' && duelStats.phase !== 'off' && duelStats.phase !== 'outro');
+      (game.mode === 'duel' && duelStats.phase !== 'off' && duelStats.phase !== 'outro') ||
+      // The tutorial's lessons can't hurt you: the bar comes up for the fight.
+      (game.mode === 'tutorial' && !duelTutor.lesson && duelStats.phase !== 'off' && duelStats.phase !== 'outro');
     if (up && (this.rise === 0 || this.placedFor !== game.recentred)) this.place();
     this.rise = Math.min(1, Math.max(0, this.rise + (up ? delta : -delta) / 0.35));
     this.root.visible = this.rise > 0;
