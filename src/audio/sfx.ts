@@ -91,6 +91,13 @@ export function audioContext(): AudioContext | null {
   return getCtx();
 }
 
+/** The effects bus (SOUND on the wrist panel mutes it): Ember's voice
+ *  plays through it. */
+export function sfxOut(): AudioNode | null {
+  getCtx();
+  return master;
+}
+
 export function audioState(): string {
   return ctx?.state ?? 'none';
 }
@@ -691,6 +698,18 @@ export const SOUNDS = {
       [1, 2.76, 5.4].forEach((m, i) => tone({ freq: 620 * m, to: 610 * m, type: 'sine', dur: 0.9 - i * 0.25, gain: 0.11 / (i + 1), delay: d }));
       clank(2400, 0.06, 0.08, d);
     }
+  },
+  emberChime: () => {
+    // EMBER's "notice me" (FF2's): two soft sine notes, E6 then A6.
+    tone({ freq: 1318.5, dur: 0.45, gain: 0.16 });
+    tone({ freq: 1760, dur: 0.45, gain: 0.16, delay: 0.11 });
+  },
+  rustWake: () => {
+    // The rust bucket comes to: a seized joint groaning loose, a clunk.
+    servo(70, 140, 0.55, 0.06);
+    noise(0.5, 0.05, 300, 900, 0, 6);
+    clank(520, 0.12, 0.25, 0.5);
+    clank(780, 0.06, 0.18, 0.62);
   },
   rivalHit: (k = 0) => {
     // Your fire landing on a body: a thump and a burst of flame, brighter

@@ -6,7 +6,7 @@
  *                 round a waist, a stitch line along it;
  *   the PLATE     an octagon of gold (or silver) in the middle, a ring
  *                 inside it, and a glowing stone at its heart;
- *   SIDE PLATES   two smaller ones either side.
+ *   SIDE PLATES   four smaller ones, two either side, set into the strap.
  *
  * About 44 cm across at scale 1, facing +z. `setLevel` dims it to a ghost
  * (a belt you haven't won yet, on the rack) or tints it red (stripped).
@@ -112,28 +112,48 @@ export class BeltModel {
     this.gem.position.z = 0.02;
     this.root.add(this.gem);
 
-    // Side plates: rounded-off rectangles on the strap.
+    // Side plates: four, two each side of the centre plate, the outer pair
+    // a little smaller. Each sits ON the strap: inside its height, every
+    // point bowed back with it (a flat plate stood up to 2 cm proud of the
+    // curve at its outer edge), with a tinted face and its stone on that face.
     const side: number[] = [];
+    const lift = 0.003;
     for (const sx of [-1, 1]) {
-      const cx = sx * 0.135;
-      const z = bow(cx) + 0.008;
-      const hw = 0.032;
-      const hh = 0.04;
-      const c = 0.01;
-      const pts = [
-        [cx - hw + c, hh], [cx + hw - c, hh], [cx + hw, hh - c], [cx + hw, -hh + c],
-        [cx + hw - c, -hh], [cx - hw + c, -hh], [cx - hw, -hh + c], [cx - hw, hh - c],
-      ];
-      for (let k = 0; k < pts.length; k++) {
-        const [x0, y0] = pts[k];
-        const [x1, y1] = pts[(k + 1) % pts.length];
-        side.push(x0, y0, z, x1, y1, z);
+      for (const [at, hw, hh] of [
+        [0.104, 0.026, 0.028],
+        [0.166, 0.022, 0.025],
+      ] as const) {
+        const cx = sx * at;
+        const c = 0.008;
+        const corners: [number, number][] = [
+          [cx - hw + c, hh], [cx + hw - c, hh], [cx + hw, hh - c], [cx + hw, -hh + c],
+          [cx + hw - c, -hh], [cx - hw + c, -hh], [cx - hw, -hh + c], [cx - hw, hh - c],
+        ];
+        // The outline, its long edges cut short so they follow the bow.
+        const ring: [number, number][] = [];
+        for (let k = 0; k < corners.length; k++) {
+          const [x0, y0] = corners[k];
+          const [x1, y1] = corners[(k + 1) % corners.length];
+          const steps = Math.abs(x1 - x0) > 0.01 ? 4 : 1;
+          for (let j = 0; j < steps; j++) ring.push([x0 + ((x1 - x0) * j) / steps, y0 + ((y1 - y0) * j) / steps]);
+        }
+        const z = (x: number): number => bow(x) + lift;
+        for (let k = 0; k < ring.length; k++) {
+          const [x0, y0] = ring[k];
+          const [x1, y1] = ring[(k + 1) % ring.length];
+          side.push(x0, y0, z(x0), x1, y1, z(x1));
+        }
+        const fp = [cx, 0, z(cx)];
+        for (const [x, y] of ring) fp.push(x, y, z(x));
+        const face = new BufferGeometry();
+        face.setAttribute('position', new Float32BufferAttribute(fp, 3));
+        face.setIndex(ring.flatMap((_, k) => [0, k + 1, ((k + 1) % ring.length) + 1]));
+        this.root.add(this.glassMesh(face, belt.metal, 0.1));
+        const dot = glowSprite(belt.gem, hw * 0.75, 0.9);
+        dot.position.set(cx, 0, z(cx) + 0.002);
+        this.root.add(dot);
+        this.dots.push(dot);
       }
-      // A little gem dot.
-      const dot = glowSprite(belt.gem, 0.02, 0.9);
-      dot.position.set(cx, 0, z + 0.004);
-      this.root.add(dot);
-      this.dots.push(dot);
     }
     this.edges(side, belt.metal, 0.85);
     this.setLevel(1);

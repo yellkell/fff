@@ -33,7 +33,7 @@ rebuilt for the headsets that ship without controllers. **Read
   your fingertip is even when the panel hides it, and a finger has to come
   at a button from the front to press it.
   - **THE CONSOLE** rises out of the floor at the front of your pad:
-    TITANS, 1V1 and PRACTICE. It sinks away when you start.
+    TITANS, TUTORIAL and PRACTICE. It sinks away when you start.
   - **THE WRIST PANEL**: turn your left palm up and look at it. LEAVE
     goes back to the console; RECENTRE puts the pad under your feet,
     facing where you look.
@@ -158,8 +158,40 @@ rebuilt for the headsets that ship without controllers. **Read
   faded to black but still drawn was a black dot hanging in the room.
   Sparks and the platform's glow now fade their alpha with their light.
 
-- **1V1, against the bot** (`src/systems/DuelSystem.ts`, DESIGN §4.1).
-  Poke 1V1 and a neon boxer fades in on its own ember pad 3 m across from
+- **TUTORIAL, with EMBER** (`src/systems/TutorialSystem.ts`, DESIGN §4.2).
+  FIRE FIGHT 2's voiced tutorial, rebuilt for hands. It took 1V1's place on
+  the console. EMBER, a warm little ball of light, catches your eye ("Over
+  here."), says hello and asks you to press BEGIN on a panel that rises
+  where the console stands. Then, on the rust bucket:
+  - **light a ball** (fist or pinch), **throw it at him** (punch, opening
+    your hand), **call one home** while it flies and catch it;
+  - **block** two of his throws with a ball spinning round your hand (or
+    an open palm), the second faster. She throws again until you get them;
+  - **move**: she calls LEFT and RIGHT, the half of your pad to step into
+    lights green, and his ball goes where your head was;
+  - then **one fight**, the rust bucket at just over half health, until
+    one of you goes down. The console comes back on YOU GRADUATED, with
+    AGAIN and TITANS.
+
+  Her lines are FF2's recordings (`src/assets/tutor/`), only the ones true
+  in Flux: nothing about the trigger, the loadout, the store or the
+  Sheriff, and three takes cut at a pause to drop a sentence that wasn't.
+  Her words are captioned under her, and what your hands should do goes
+  on a cyan cue line beneath, never in her mouth. The lessons can't hurt
+  you, and her voice comes from where she is.
+
+  **The rust bucket**, made over (`src/duel/rival.ts`, `skin: 'rust'`): an
+  old sparring machine nobody's oiled in years. Rust-orange lines, two odd
+  eye lamps (one with a bad bulb that stutters), a bent antenna blinking
+  on his crown, a ring of rivets, a mouth grille, verdigris patch plates
+  riveted on skew over his chest, a pressure dial whose needle never
+  settles, a stovepipe behind his shoulder puffing smoke, and verdigris
+  cuffs on his gloves. He stands slumped and dark until EMBER names him
+  ("See this rust bucket?"), then groans awake.
+
+- **1V1, against the bot** (`src/systems/DuelSystem.ts`, DESIGN §4.1),
+  off the console until it comes back over the relay (the checks still
+  play it). A neon boxer fades in on its own ember pad 3 m across from
   yours, with two fireballs of its own. FIRE FIGHT 2's classic duel:
   - first to **two rounds**, 60 s each, a 3-2-1 and a bell before every
     one; at the bell's end the healthier one takes it;
@@ -193,11 +225,14 @@ rebuilt for the headsets that ship without controllers. **Read
      you shoot it down with a fireball, palm it, or step late. Twenty hits.
 
   Your belts hang on a rack over the console: lit if they're yours, a
-  ghost if not yet, red if stripped. Win one and it comes off the rack and
+  ghost if not yet, red if stripped. Each has four side plates, two either
+  side of its centre plate, set into the strap and curving with it, and
+  its name under it turns white as it's won. Win one and it comes off the rack and
   is held up over the console to a fanfare. Your career is saved.
 
-All five titans fight, and 1V1 is in against the bot. Next up: tune both
-on a headset, then 1V1 over the relay.
+All five titans fight, the tutorial teaches you on the rust bucket, and
+1V1 is built against the bot. Next up: tune them on a headset, then 1V1
+over the relay.
 
 ## Run it
 
@@ -228,7 +263,8 @@ npm run check:smoke  # needs `npm run dev`: boots, enters onto the console,
                      # and GOLIATH (the decree's gap, the enrage), then 1V1
                      # (its throw dodged, palmed and taken, your ball on it,
                      # the clash, its guard, three rounds to the results and
-                     # up the ladder) with the emulator's hands
+                     # up the ladder), then the TUTORIAL from start to
+                     # graduation, with the emulator's hands
                      # (-- --shots DIR: a picture of each)
 npm run check:titans # needs `npm run dev`: every titan builds in neon, fits
                      # the room and stays in the draw budget (-- --shots for pictures)

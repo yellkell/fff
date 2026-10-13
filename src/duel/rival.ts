@@ -14,6 +14,14 @@
  *   GLOVES   glass with a lit ring and an ember glow. A raised GUARD
  *            burns white-hot: that glove is the shield.
  *
+ * THE RUST BUCKET is the same body in EMBER's tutorial, done up as an old
+ * sparring machine nobody's oiled in years (`skin: 'rust'`): rust-orange
+ * lines that run dimmer, verdigris patch plates riveted over its chest, a
+ * pressure dial whose needle can't sit still, a stovepipe up behind its
+ * shoulder puffing smoke, two odd eye lamps (one with a bad bulb) where the visor
+ * was, a bent antenna blinking on its crown, and a ring of rivets round
+ * its head. It stands slumped and dark until EMBER names it.
+ *
  * It's a puppet: whoever drives it (the bot now, a remote player later)
  * hands it a head, two hands and a few flags each frame. Its fade is how it
  * arrives and leaves; every light fades its alpha, never to black (over
@@ -29,6 +37,7 @@ import {
   Group,
   Matrix4,
   Mesh,
+  Object3D,
   MeshBasicMaterial,
   type Quaternion,
   SphereGeometry,
@@ -38,7 +47,7 @@ import {
   Vector3,
 } from 'three';
 import { BOT, NEON, TITAN_NEON } from '../config.js';
-import { glowSprite } from '../fx/neon.js';
+import { fx, glowSprite } from '../fx/neon.js';
 import { tubes } from '../titans/neon.js';
 import { makeBody, solveBody } from './body.js';
 
@@ -47,6 +56,19 @@ const BONE = 0.3;
 const SHOULDER_HALF = 0.19;
 const HEAD_R = 0.11;
 const UP = new Vector3(0, 1, 0);
+
+/** The rust bucket's colours: old iron, its verdigris, its tired bulbs. */
+export const RUST = { line: 0xc4521c, patina: 0x2fe0a8, bulb: 0xffb43a, smoke: 0x6e6660 };
+
+export type RivalSkin = 'neon' | 'rust';
+
+/** Something stuck to the torso, placed along it each frame (the torso is
+ *  stretched to the spine, and a rivet stretched with it would smear). */
+interface Decor {
+  obj: Object3D;
+  /** How far up the torso, 0 hips … 1 neck. */
+  along: number;
+}
 
 const _a = new Vector3();
 const _b = new Vector3();
@@ -84,11 +106,31 @@ export class Rival {
   private fade = 1;
   private hitFlash = 0;
   private readonly line: Color;
+  readonly skin: RivalSkin;
+  // The rust bucket's moving parts.
+  private readonly decor = new Group();
+  private readonly decors: Decor[] = [];
+  private needle: Object3D | null = null;
+  private readonly lamps: Sprite[] = [];
+  private bulb: Sprite | null = null;
+  private stack = new Vector3();
+  private t = 0;
+  private awake = 1;
+  private flicker = 0;
+  private nextFlicker = 3;
+  private puff = 0;
 
-  constructor(line = NEON.ember, accent = NEON.hot) {
+  constructor(line: number = NEON.ember, accent: number = NEON.hot, skin: RivalSkin = 'neon') {
+    this.skin = skin;
+    const rust = skin === 'rust';
+    if (rust) {
+      line = RUST.line;
+      accent = RUST.bulb;
+    }
     this.line = new Color(line);
-    this.root.name = 'rival';
-    const edge = this.line.clone().lerp(new Color(NEON.hot), TITAN_NEON.edgeWhite);
+    this.root.name = rust ? 'rust-bucket' : 'rival';
+    // Old iron doesn't burn as white as new neon.
+    const edge = this.line.clone().lerp(new Color(NEON.hot), rust ? 0.12 : TITAN_NEON.edgeWhite);
     const glassMat = (): MeshBasicMaterial =>
       this.track(
         new MeshBasicMaterial({
@@ -122,17 +164,19 @@ export class Rival {
       band.position.y = -0.015;
       this.head.add(band);
     }
-    const visor = new Mesh(
-      new TorusGeometry(HEAD_R * 1.03, 0.012, 6, 24, Math.PI * 0.55),
-      this.track(new MeshBasicMaterial({ color: accent, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false })),
-    );
-    // An arc across the face, level, centred on −z (the face).
-    visor.rotation.set(Math.PI / 2, 0, Math.PI * 1.225);
-    visor.position.y = 0.02;
-    this.head.add(visor);
-    const eye = this.trackSprite(glowSprite(line, 0.16, 0.7));
-    eye.position.set(0, 0.02, -HEAD_R);
-    this.head.add(eye);
+    if (!rust) {
+      const visor = new Mesh(
+        new TorusGeometry(HEAD_R * 1.03, 0.012, 6, 24, Math.PI * 0.55),
+        this.track(new MeshBasicMaterial({ color: accent, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false })),
+      );
+      // An arc across the face, level, centred on −z (the face).
+      visor.rotation.set(Math.PI / 2, 0, Math.PI * 1.225);
+      visor.position.y = 0.02;
+      this.head.add(visor);
+      const eye = this.trackSprite(glowSprite(line, 0.16, 0.7));
+      eye.position.set(0, 0.02, -HEAD_R);
+      this.head.add(eye);
+    }
     this.root.add(this.head);
 
     // The torso, modelled one metre tall along +y and stretched to the spine.
@@ -146,6 +190,7 @@ export class Rival {
     const bar = [-SHOULDER_HALF, 0.98, 0, SHOULDER_HALF, 0.98, 0];
     this.torso.add(new Mesh(tubes(bar, 0.012), tubeMat()));
     this.root.add(this.torso);
+    this.root.add(this.decor);
 
     // Four bones (upper arm, forearm, each side): a lit core and its halo,
     // unit cylinders stretched between joints every frame.
@@ -168,6 +213,169 @@ export class Rival {
       g.add(glow);
       this.root.add(g);
       this.gloves.push({ root: g, glow });
+    }
+    if (rust) this.rustBucket();
+  }
+
+  /** The makeover: everything that makes the rust bucket a rust bucket. */
+  private rustBucket(): void {
+    const lit = (color: number, opacity = 1): MeshBasicMaterial =>
+      this.track(new MeshBasicMaterial({ color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
+    const dot = (color: number, size: number, opacity = 0.9): Sprite => this.trackSprite(glowSprite(color, size, opacity));
+    const lines = (segs: number[], color: number, r = TITAN_NEON.edgeRadius): Group => {
+      const g = new Group();
+      g.add(new Mesh(tubes(segs, r), lit(color)), new Mesh(tubes(segs, r * 3), lit(color, TITAN_NEON.haloOpacity)));
+      return g;
+    };
+    const ring = (r: number, n = 16): number[] => {
+      const out: number[] = [];
+      for (let k = 0; k < n; k++) {
+        const a0 = (k / n) * Math.PI * 2;
+        const a1 = ((k + 1) / n) * Math.PI * 2;
+        out.push(Math.cos(a0) * r, Math.sin(a0) * r, 0, Math.cos(a1) * r, Math.sin(a1) * r, 0);
+      }
+      return out;
+    };
+    const onHead = (x: number, y: number, out = 0.004): Vector3 =>
+      new Vector3(x, y, -Math.sqrt(Math.max(0, HEAD_R * HEAD_R - x * x - y * y)) - out);
+
+    // Two odd eye lamps where the visor was: a big one and a squinting one.
+    for (const [x, y, r] of [
+      [-0.042, 0.026, 0.03],
+      [0.046, 0.032, 0.019],
+    ] as const) {
+      const at = onHead(x, y);
+      const rim = lines(ring(r), RUST.bulb, 0.0035);
+      rim.position.copy(at);
+      rim.lookAt(at.clone().multiplyScalar(2));
+      const lamp = dot(RUST.bulb, r * 4.2, 0.85);
+      lamp.position.copy(at);
+      this.head.add(rim, lamp);
+      this.lamps.push(lamp);
+    }
+    // A grille for a mouth, and a ring of rivets round the band.
+    const grille: number[] = [];
+    for (const y of [-0.038, -0.052, -0.066]) {
+      const a = onHead(-0.034, y, 0.002);
+      const b = onHead(0.034, y, 0.002);
+      grille.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+    this.head.add(lines(grille, this.line.getHex()));
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const r = dot(RUST.bulb, 0.014, 0.7);
+      r.position.set(Math.sin(a) * HEAD_R * 1.04, -0.015, Math.cos(a) * HEAD_R * 1.04);
+      this.head.add(r);
+    }
+    // A bent antenna off its crown, a bulb blinking on the end.
+    const ant = [0.02, HEAD_R * 0.92, 0.03, 0.035, 0.17, 0.04, 0.035, 0.17, 0.04, 0.075, 0.22, 0.02];
+    this.head.add(lines(ant, this.line.getHex(), 0.003));
+    this.bulb = dot(NEON.danger, 0.045, 0.95);
+    this.bulb.position.set(0.075, 0.225, 0.02);
+    this.head.add(this.bulb);
+
+    // On the torso (its front is −z; it tapers from 0.16 at the neck to 0.11
+    // at the hips, an octagon whose front face is flat).
+    const front = (along: number): number => -(0.11 + 0.05 * along) * Math.cos(Math.PI / 8) - 0.006;
+    const stick = (obj: Object3D, along: number, x: number, z?: number): void => {
+      obj.position.set(x, 0, z ?? front(along));
+      this.decor.add(obj);
+      this.decors.push({ obj, along });
+    };
+    // A verdigris patch riveted on skew over the chest, and a smaller one low.
+    for (const [along, x, w, h, tilt] of [
+      [0.66, 0.045, 0.085, 0.065, 0.16],
+      [0.22, -0.035, 0.06, 0.045, -0.22],
+    ] as const) {
+      const patch = new Group();
+      const hw = w / 2;
+      const hh = h / 2;
+      patch.add(lines([-hw, -hh, 0, hw, -hh, 0, hw, -hh, 0, hw, hh, 0, hw, hh, 0, -hw, hh, 0, -hw, hh, 0, -hw, -hh, 0], RUST.patina, 0.004));
+      for (const [cx, cy] of [
+        [-hw, -hh],
+        [hw, -hh],
+        [hw, hh],
+        [-hw, hh],
+      ]) {
+        const rivet = dot(RUST.patina, 0.018, 0.9);
+        rivet.position.set(cx * 0.82, cy * 0.72, 0.002);
+        patch.add(rivet);
+      }
+      patch.rotation.z = tilt;
+      stick(patch, along, x);
+    }
+    // The pressure dial, its needle never quite settling.
+    const dial = new Group();
+    dial.add(lines(ring(0.028, 18), RUST.bulb, 0.0035));
+    const needle = lines([0, 0, 0.001, 0, 0.022, 0.001], NEON.danger, 0.003);
+    dial.add(needle);
+    this.needle = needle;
+    stick(dial, 0.44, -0.05);
+    // Bolts through the shoulders.
+    for (const x of [-SHOULDER_HALF, SHOULDER_HALF]) stick(dot(RUST.bulb, 0.03, 0.8), 0.98, x, 0);
+    // A stovepipe off the back of its right shoulder, up past its ear (it
+    // always faces you, so anything lower on its back is never seen): two
+    // rings, four staves.
+    const pipe = new Group();
+    const pr = 0.03;
+    const ph = 0.18;
+    const staves: number[] = [];
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+      staves.push(Math.cos(a) * pr, 0, Math.sin(a) * pr, Math.cos(a) * pr, ph, Math.sin(a) * pr);
+    }
+    pipe.add(lines(staves, this.line.getHex(), 0.003));
+    for (const y of [0, ph]) {
+      const r = lines(ring(pr, 12), this.line.getHex(), 0.003);
+      r.rotation.x = Math.PI / 2;
+      r.position.y = y;
+      pipe.add(r);
+    }
+    stick(pipe, 0.92, 0.16, 0.06);
+    this.stack.set(0.16, ph, 0.06);
+
+    // Gloves: a verdigris cuff round each wrist.
+    for (const g of this.gloves) {
+      const cuff = new Mesh(new TorusGeometry(BOT.gloveRadius * 0.85, TITAN_NEON.edgeRadius * 1.3, 6, 20), lit(RUST.patina));
+      cuff.position.z = BOT.gloveRadius * 0.8;
+      g.root.add(cuff);
+    }
+  }
+
+  /** The rust bucket slumped and dark (0) or awake (1): its lamps, its
+   *  antenna and its smoke. */
+  setAwake(k: number): void {
+    this.awake = Math.min(1, Math.max(0, k));
+  }
+
+  /** The makeover's moving parts: the needle, the bulbs, the smoke. */
+  private animate(delta: number): void {
+    this.t += delta;
+    const len = this.torso.scale.y;
+    this.decor.position.copy(this.torso.position);
+    this.decor.quaternion.copy(this.torso.quaternion);
+    for (const d of this.decors) d.obj.position.y = d.along * len;
+    if (this.needle) this.needle.rotation.z = -0.6 + 0.35 * Math.sin(this.t * 1.3) + 0.12 * Math.sin(this.t * 17);
+    // A bad bulb: now and then the big lamp stutters out for a moment.
+    this.nextFlicker -= delta;
+    if (this.nextFlicker <= 0) {
+      this.flicker = 0.35;
+      this.nextFlicker = 3 + Math.random() * 5;
+    }
+    this.flicker = Math.max(0, this.flicker - delta);
+    const stutter = this.flicker > 0 && Math.sin(this.t * 70) > -0.2;
+    const wake = this.awake;
+    this.lamps.forEach((l, i) => {
+      l.visible = wake > 0.05 && !(i === 0 && stutter);
+      l.scale.setScalar((i === 0 ? 0.126 : 0.08) * (0.3 + 0.7 * wake));
+    });
+    if (this.bulb) this.bulb.visible = wake > 0.5 && Math.sin(this.t * Math.PI * 1.6) > 0;
+    // Smoke from the stovepipe while it's awake.
+    this.puff -= delta;
+    if (wake > 0.5 && this.puff <= 0 && this.root.visible) {
+      this.puff = 0.35 + Math.random() * 0.4;
+      const at = this.decor.localToWorld(_a.copy(this.stack).setY(0.92 * len + this.stack.y));
+      fx.sparks?.burst(at, 3, RUST.smoke, 0.25);
     }
   }
 
@@ -215,6 +423,7 @@ export class Rival {
       mat.color.set(hot ? NEON.hot : this.line);
       g.glow.scale.setScalar(BOT.gloveRadius * (hot ? 7 : p.winding[i] ? 5.5 : 4));
     }
+    if (this.skin === 'rust') this.animate(delta);
     this.applyFade();
   }
 

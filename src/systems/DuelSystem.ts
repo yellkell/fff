@@ -30,6 +30,16 @@
  *
  * The rival is a puppet (duel/rival.ts): the bot drives it now; a remote
  * player drives the same puppet when the relay comes.
+ *
+ * EMBER'S TUTORIAL rides this same bout (game mode 'tutorial', DESIGN §4.2),
+ * against the rust bucket (the rival's 'rust' skin), the way FF2's rode its
+ * bot bout. TutorialSystem holds it through `duelTutor`: in a LESSON the
+ * bot never throws or guards on its own, the clock stands still and nobody's
+ * health moves (hits still count, so a lesson can see them); the drills'
+ * balls are thrown on request at a spot and a speed, and each one reports
+ * how it ended (blocked, hit, missed). Then one fight, the rust bucket at
+ * just over half health and no clock: a knockdown either way ends it, held
+ * until EMBER has had her say.
  */
 
 import { createSystem } from '@iwsdk/core';
@@ -50,6 +60,27 @@ import { FONT, frame, glass, glowText, textPlane, type TextPlane } from '../ui/k
 import { ballsInFlight, ballStates } from './FireballSystem.js';
 
 type Phase = 'off' | 'intro' | 'countdown' | 'fight' | 'roundOver' | 'matchOver' | 'outro';
+
+/** The rust bucket's health in the tutorial: low enough for a beginner. */
+export const TUTOR_HP = 0.55;
+
+/** TutorialSystem's hold on the bout (only read in game mode 'tutorial'). */
+export const duelTutor = {
+  /** A lesson: no throws or guards of its own, no clock, no damage. */
+  lesson: true,
+  /** It stands slumped and dark until EMBER names it. */
+  awake: false,
+  /** Throw a drill ball (from `hand` if it's home) at `at`, at `speed` m/s. */
+  lob: null as { hand: 0 | 1; at: Vector3; speed: number } | null,
+  /** Drill balls released so far ("Incoming" goes with the release). */
+  thrown: 0,
+  /** How the last drill ball ended; the tutorial reads it and clears it. */
+  outcome: null as 'blocked' | 'hit' | 'missed' | null,
+  /** Ring the bell: the lessons are over, the fight is on. */
+  bell: false,
+  /** The knockdown's held until EMBER's last line is done: set to go home. */
+  release: false,
+};
 type BallState = 'home' | 'orbit' | 'flying' | 'spent' | 'returning';
 
 interface RivalBall {
@@ -63,6 +94,8 @@ interface RivalBall {
   /** Counts down to the bot calling it home (<0: not called for). */
   recall: number;
   trail: number;
+  /** A tutorial drill ball: its ending is reported. */
+  drill: boolean;
   group: Group;
   core: Group;
 }
@@ -156,6 +189,14 @@ export class DuelSystem extends createSystem({}) {
   private rung = 0;
   private brain: BotBrain = brainFor(0);
   private rival!: Rival;
+  private boxer!: Rival;
+  private rust!: Rival;
+  /** This bout is EMBER's tutorial. */
+  private tutorial = false;
+  /** The rust bucket coming to, 0–1. */
+  private wake = 0;
+  /** The drill ball being wound up: where and how fast it goes. */
+  private drillShot: { at: Vector3; speed: number } | null = null;
   private pad!: Group;
   private readonly balls: RivalBall[] = [];
   private bot!: Bot;
@@ -203,9 +244,13 @@ export class DuelSystem extends createSystem({}) {
   private drawnBig = '';
 
   init(): void {
-    this.rival = new Rival(NEON.ember, NEON.hot);
-    this.rival.setFade(0);
-    this.scene.add(this.rival.root);
+    this.boxer = new Rival(NEON.ember, NEON.hot);
+    this.rust = new Rival(NEON.ember, NEON.hot, 'rust');
+    for (const r of [this.boxer, this.rust]) {
+      r.setFade(0);
+      this.scene.add(r.root);
+    }
+    this.rival = this.boxer;
 
     // Its pad: the same octagon, turned round to face you, in its colours.
     this.pad = buildPlatform({ rim: NEON.ember, stripe: NEON.violet, yours: false });
@@ -223,7 +268,7 @@ export class DuelSystem extends createSystem({}) {
       group.add(core);
       group.visible = false;
       this.scene.add(group);
-      this.balls.push({ hand, state: 'home', pos: new Vector3(), prev: new Vector3(), vel: new Vector3(), age: 0, angle: hand * Math.PI, recall: -1, trail: 0, group, core });
+      this.balls.push({ hand, state: 'home', pos: new Vector3(), prev: new Vector3(), vel: new Vector3(), age: 0, angle: hand * Math.PI, recall: -1, trail: 0, drill: false, group, core });
     }
     this.bot = this.freshBot();
 
@@ -267,22 +312,24 @@ export class DuelSystem extends createSystem({}) {
         hit: (ball) => self.clash(b, ball.at),
       });
     }
-    for (const part of this.rival.body) {
-      addHittable({
-        pos: part.pos,
-        radius: part.radius,
-        live: fighting,
-        // Throws within ~25° of its head are bent onto it.
-        assist: part.part === 'head',
-        onReturn: false,
-        hit: (ball) => self.landed(part, ball.at),
-      });
+    for (const rival of [this.boxer, this.rust]) {
+      for (const part of rival.body) {
+        addHittable({
+          pos: part.pos,
+          radius: part.radius,
+          live: () => fighting() && self.rival === rival,
+          // Throws within ~25° of its head are bent onto it.
+          assist: part.part === 'head',
+          onReturn: false,
+          hit: (ball) => self.landed(part, ball.at),
+        });
+      }
     }
   }
 
   update(delta: number): void {
     this.t += delta;
-    const want = game.mode === 'duel';
+    const want = game.mode === 'duel' || game.mode === 'tutorial';
     if (want && this.phase === 'off') this.spawn();
     if (!want && this.phase !== 'off') this.despawn();
     if (this.phase === 'off') {
@@ -301,7 +348,10 @@ export class DuelSystem extends createSystem({}) {
         const u = Math.min(1, this.phaseT / DUEL.introTime);
         this.rival.setFade(u);
         if (Math.random() < 0.6) fx.sparks?.burst(_v.set(rand(-0.3, 0.3), rand(0.2, 1.6), -DUEL.gap + rand(-0.2, 0.2)), 2, NEON.ember, 0.8);
-        if (u >= 1) this.startCountdown();
+        if (u >= 1) {
+          if (this.tutorial) this.startLesson();
+          else this.startCountdown();
+        }
         break;
       }
       case 'countdown': {
@@ -320,6 +370,11 @@ export class DuelSystem extends createSystem({}) {
         this.fightStep(delta);
         break;
       case 'roundOver':
+        // The tutorial's knockdown waits on EMBER's last line.
+        if (this.tutorial) {
+          if (duelTutor.release) this.enter('outro');
+          break;
+        }
         if (this.phaseT >= DUEL.roundOverTime) {
           if (Math.max(...this.rounds) >= DUEL.winTarget) this.enter('matchOver');
           else this.startCountdown();
@@ -348,23 +403,28 @@ export class DuelSystem extends createSystem({}) {
 
   /** The rung's name (a mercy-softened brain still answers to it). */
   private get label(): string {
-    return BOT_LADDER[this.rung].label;
+    return this.tutorial ? 'RUST BUCKET' : BOT_LADDER[this.rung].label;
   }
 
   /* ── the match ─────────────────────────────────────────────────────── */
 
   private spawn(): void {
-    this.rung = clamp(game.rung, 0, BOT_LADDER.length - 1);
-    game.rung = this.rung;
+    this.tutorial = game.mode === 'tutorial';
+    this.rival = this.tutorial ? this.rust : this.boxer;
+    this.rung = this.tutorial ? 0 : clamp(game.rung, 0, BOT_LADDER.length - 1);
+    if (!this.tutorial) game.rung = this.rung;
     this.brain = brainFor(this.rung);
     this.rounds = [0, 0];
     this.round = 0;
     this.fightTime = 0;
-    this.rivalHp = 1;
-    this.chip = 1;
+    this.rivalHp = this.tutorial ? TUTOR_HP : 1;
+    this.chip = this.rivalHp;
     game.playerHp = 1;
     game.result = null;
     this.bot = this.freshBot();
+    this.wake = this.tutorial ? 0 : 1;
+    this.drillShot = null;
+    this.rival.setAwake(this.wake);
     this.homeBalls();
     this.headTrail.length = 0;
     this.camera.getWorldPosition(this.headPrev);
@@ -403,12 +463,30 @@ export class DuelSystem extends createSystem({}) {
     this.enter('fight');
   }
 
+  /** The tutorial: straight into one long 'fight', held as a lesson. */
+  private startLesson(): void {
+    this.round = 1;
+    this.timer = DUEL.roundTime;
+    this.message = '';
+    this.homeBalls();
+    this.enter('fight');
+  }
+
   private fightStep(delta: number): void {
+    if (this.tutorial && duelTutor.bell) {
+      // The lessons are over: the bell, and the rust bucket fights back.
+      duelTutor.bell = false;
+      this.message = 'FIGHT';
+      this.phaseT = 0;
+      this.bot.throwTimer = this.brain.throwInterval;
+      sfx('bell');
+    }
     if (this.message === 'FIGHT' && this.phaseT > 1) this.message = '';
     this.fightTime += delta;
-    if (!duelDebug.hold) this.timer = Math.max(0, this.timer - delta);
+    // No clock in the tutorial: a knockdown is the only way out.
+    if (!duelDebug.hold && !this.tutorial) this.timer = Math.max(0, this.timer - delta);
     // Standing off the pad costs you, as it does against a titan.
-    if (game.headOutside) this.hurt(FIGHT.outsideDrain * delta, false);
+    if (game.headOutside && !this.lesson) this.hurt(FIGHT.outsideDrain * delta, false);
     if (this.phase !== 'fight') return;
     this.fightBot(delta);
     if (this.timer <= 0) {
@@ -423,9 +501,14 @@ export class DuelSystem extends createSystem({}) {
     if (winner !== null) this.rounds[winner]++;
     // Down, not out-pointed at the bell: the knockout.
     if (winner !== null && (winner === 0 ? this.rivalHp : game.playerHp) <= 0) sfx('ko');
-    this.won = this.rounds[0] >= DUEL.winTarget;
+    // The tutorial is one knockdown, either way.
+    this.won = this.tutorial ? winner === 0 : this.rounds[0] >= DUEL.winTarget;
     const label = this.label;
     this.message = winner === null ? 'DRAW' : winner === 0 ? 'ROUND TO YOU' : `ROUND TO ${label}`;
+    if (this.tutorial) {
+      this.message = winner === 0 ? 'DOWN HE GOES' : 'YOU WENT DOWN';
+      sfx(this.won ? 'win' : 'lose');
+    }
     for (const b of this.balls) {
       if (b.state === 'flying') this.spend(b, false);
       if (b.state === 'orbit') b.state = 'home';
@@ -434,6 +517,11 @@ export class DuelSystem extends createSystem({}) {
     this.bot.windup = -1;
     this.bot.followUp = -1;
     this.enter('roundOver');
+  }
+
+  /** A tutorial lesson is on: nothing moves anyone's health. */
+  private get lesson(): boolean {
+    return this.tutorial && duelTutor.lesson;
   }
 
   private enter(p: Phase): void {
@@ -446,7 +534,9 @@ export class DuelSystem extends createSystem({}) {
   }
 
   private finish(): void {
-    game.result = { mode: 'duel', titan: this.label, won: this.won, time: this.fightTime, rounds: [...this.rounds] };
+    game.result = this.tutorial
+      ? { mode: 'tutorial', titan: this.label, won: this.won, time: this.fightTime }
+      : { mode: 'duel', titan: this.label, won: this.won, time: this.fightTime, rounds: [...this.rounds] };
     this.despawn();
     setMode('home');
   }
@@ -458,9 +548,13 @@ export class DuelSystem extends createSystem({}) {
     this.hud.visible = false;
     for (const b of this.balls) {
       b.state = 'home';
+      b.drill = false;
       b.group.visible = false;
       hum(`rival-${b.hand}`, 'fire', b.pos, 0);
     }
+    Object.assign(duelTutor, { lesson: true, awake: false, lob: null, outcome: null, bell: false, release: false });
+    this.drillShot = null;
+    this.tutorial = false;
     game.playerHp = 1;
     setPlatformDanger(0);
     this.flashT = 0;
@@ -472,7 +566,7 @@ export class DuelSystem extends createSystem({}) {
 
   private hurt(amount: number, flash: boolean): void {
     if (this.phase !== 'fight') return;
-    game.playerHp = Math.max(0, game.playerHp - amount);
+    if (!this.lesson) game.playerHp = Math.max(0, game.playerHp - amount);
     if (flash) {
       duelStats.hitsTaken++;
       this.flashT = 1;
@@ -483,7 +577,7 @@ export class DuelSystem extends createSystem({}) {
   /** Your ball on its body. */
   private landed(part: BodySphere, at: Vector3): 'stop' {
     const head = part.part === 'head';
-    this.rivalHp = Math.max(0, this.rivalHp - (head ? DUEL.headDamage : DUEL.bodyDamage));
+    if (!this.lesson) this.rivalHp = Math.max(0, this.rivalHp - (head ? DUEL.headDamage : DUEL.bodyDamage));
     duelStats.hitsLanded++;
     duelStats.rivalHp = this.rivalHp;
     if (head) duelStats.headHits++;
@@ -493,6 +587,8 @@ export class DuelSystem extends createSystem({}) {
     fx.sparks?.burst(at, 16, NEON.hot, 1.4);
     fx.impacts?.hit(at, NEON.ember, head ? 0.7 : 0.5, head ? 2 : 1);
     sfx('rivalHit', at, head ? 1 : 0);
+    // A lesson's drill throw goes ahead whatever you land on it.
+    if (this.lesson) return 'stop';
     // A clean hit rocks it back: the bot loses its wind-up.
     this.bot.windup = -1;
     this.bot.followUp = -1;
@@ -522,6 +618,7 @@ export class DuelSystem extends createSystem({}) {
     fx.sparks?.burst(at, 30, NEON.cyan, 2.2);
     fx.impacts?.hit(at, NEON.hot, 0.5, 2);
     sfx('block', at);
+    if (b.drill) duelTutor.outcome = 'blocked';
     this.spend(b, false);
     return 'stop';
   }
@@ -563,7 +660,16 @@ export class DuelSystem extends createSystem({}) {
           b.vel.y -= FIREBALL.gravity * delta;
           b.pos.addScaledVector(b.vel, delta);
           if (this.phase === 'fight') this.judgeBall(b);
-          if (b.state === 'flying' && (b.age > FIREBALL.lifetime || b.pos.y < 0)) this.spend(b, true);
+          // A drill ball that's gone past you missed: called there, not
+          // left to fly on until it burns out.
+          if (b.state === 'flying' && b.drill && b.pos.z > _head.z + 0.6) {
+            duelTutor.outcome = 'missed';
+            this.spend(b, false);
+          }
+          if (b.state === 'flying' && (b.age > FIREBALL.lifetime || b.pos.y < 0)) {
+            if (b.drill) duelTutor.outcome = 'missed';
+            this.spend(b, true);
+          }
           break;
         }
         case 'spent':
@@ -609,6 +715,7 @@ export class DuelSystem extends createSystem({}) {
       fx.sparks?.burst(stop, 36, NEON.hot, 2.2);
       fx.impacts?.hit(stop, NEON.hot, 0.45, 2);
       sfx('block', stop);
+      if (b.drill) duelTutor.outcome = 'blocked';
       this.spend(b, false);
       return;
     }
@@ -619,6 +726,7 @@ export class DuelSystem extends createSystem({}) {
       // The shockwave a little way back along its flight, not in your eyes.
       fx.impacts?.hit(_v.copy(b.prev).sub(b.pos).setLength(0.35).add(b.pos), NEON.danger, 0.4, 1);
       sfx('hitTaken');
+      if (b.drill) duelTutor.outcome = 'hit';
       this.spend(b, false);
       this.hurt(head ? DUEL.headDamage : DUEL.bodyDamage, true);
       return;
@@ -632,6 +740,7 @@ export class DuelSystem extends createSystem({}) {
       sfx('fizzle', b.pos);
     }
     b.state = 'spent';
+    b.drill = false;
     if (b.recall < 0) b.recall = this.brain.recallDelay * 0.5;
   }
 
@@ -639,6 +748,7 @@ export class DuelSystem extends createSystem({}) {
     for (const b of this.balls) {
       b.state = 'home';
       b.recall = -1;
+      b.drill = false;
       b.pos.copy(this.pose.hands[b.hand]);
     }
     this.pose.winding[0] = this.pose.winding[1] = false;
@@ -750,8 +860,14 @@ export class DuelSystem extends createSystem({}) {
   private moveBot(delta: number): void {
     const bot = this.bot;
     const b = this.brain;
-    bot.guardPhase += delta;
-    if (duelDebug.still || this.phase === 'intro' || this.phase === 'outro') {
+    bot.guardPhase += delta * this.wake;
+    if (this.lesson) {
+      // A lesson: it stands its ground, swaying a little once it's awake.
+      bot.targetX = 0.08 * Math.sin(bot.guardPhase * 0.7) * this.wake;
+      bot.targetY = BOT.headY;
+      bot.targetZ = 0;
+      bot.blockTimer = 0;
+    } else if (duelDebug.still || this.phase === 'intro' || this.phase === 'outro') {
       bot.targetX = 0;
       bot.targetY = BOT.headY;
       bot.targetZ = 0;
@@ -852,7 +968,14 @@ export class DuelSystem extends createSystem({}) {
     _v.copy(_head).sub(head);
     const yaw = Math.atan2(-_v.x, -_v.z);
     const pitch = clamp(Math.atan2(_v.y, Math.hypot(_v.x, _v.z) || 1e-4), -BOT.headPitchMax, BOT.headPitchMax);
-    _look.setFromAxisAngle(UP, yaw).multiply(_pitchQ.setFromAxisAngle(RIGHT, pitch));
+    // The rust bucket comes to as EMBER names it; till then it's slumped.
+    const was = this.wake;
+    this.wake = this.tutorial ? Math.min(1, Math.max(0, this.wake + (duelTutor.awake ? delta * 1.6 : -delta))) : 1;
+    if (was < 0.01 && this.wake >= 0.01) sfx('rustWake', head);
+    this.rival.setAwake(this.wake);
+    const slump = 1 - this.wake;
+    head.y -= 0.09 * slump;
+    _look.setFromAxisAngle(UP, yaw).multiply(_pitchQ.setFromAxisAngle(RIGHT, lerp(pitch, -0.6, slump)));
     this.pose.headQuat.slerp(_look, Math.min(1, delta * BOT.headTurnSpeed));
     _fwd.set(_v.x, 0, _v.z);
     if (_fwd.lengthSq() < 1e-6) _fwd.set(0, 0, 1);
@@ -881,9 +1004,9 @@ export class DuelSystem extends createSystem({}) {
         _w.setLength(BOT.blockReach).add(head);
         at.lerp(_w, Math.min(1, delta * 16));
       } else {
-        _w.set(head.x, head.y - (winding ? 0.05 : 0.18) + bob, head.z)
-          .addScaledVector(_right, side * (winding ? 0.34 : 0.22))
-          .addScaledVector(_fwd, winding ? -0.16 : 0.18);
+        _w.set(head.x, head.y - (winding ? 0.05 : lerp(0.18, 0.55, slump)) + bob, head.z)
+          .addScaledVector(_right, side * (winding ? 0.34 : lerp(0.22, 0.26, slump)))
+          .addScaledVector(_fwd, winding ? -0.16 : lerp(0.18, 0.02, slump));
         at.lerp(_w, Math.min(1, delta * 9));
       }
       this.pose.blocking[hand] = blocking;
@@ -909,6 +1032,7 @@ export class DuelSystem extends createSystem({}) {
       if (bot.windup < 0) this.release();
       return;
     }
+    if (this.lesson) return this.drill();
     if (duelDebug.hold) return;
 
     // DOUBLE TAP: the other glove follows within a beat.
@@ -942,6 +1066,18 @@ export class DuelSystem extends createSystem({}) {
     this.windUp(hand, b.windup + (Math.random() < b.feint ? BOT.feintHold : 0));
   }
 
+  /** A lesson: the only throws are the tutorial's, wound up on request. */
+  private drill(): void {
+    const ask = duelTutor.lob;
+    if (!ask || this.wake < 1) return;
+    const hand = this.ballHome(ask.hand) ? ask.hand : ((1 - ask.hand) as 0 | 1);
+    if (!this.ballHome(hand)) return; // both still out: it waits for one home
+    duelTutor.lob = null;
+    duelTutor.outcome = null;
+    this.windUp(hand, 0.6);
+    this.drillShot = { at: ask.at.clone(), speed: ask.speed };
+  }
+
   private release(): void {
     const bot = this.bot;
     const b = this.brain;
@@ -950,6 +1086,24 @@ export class DuelSystem extends createSystem({}) {
     this.pose.winding[hand] = false;
     if (ball.state !== 'orbit') return;
     const from = ball.pos.copy(this.pose.hands[hand]);
+
+    const shot = this.drillShot;
+    if (shot) {
+      // A drill ball: at the spot it was asked for (where your head was
+      // when EMBER called it), at the lesson's speed.
+      this.drillShot = null;
+      aimThrow(from, shot.at, shot.speed, FIREBALL.gravity, ball.vel);
+      ball.state = 'flying';
+      ball.drill = true;
+      ball.age = 0;
+      ball.prev.copy(from);
+      ball.recall = b.recallDelay;
+      duelStats.throws++;
+      duelTutor.thrown++;
+      fx.sparks?.burst(from, 20, NEON.ember, 1.6);
+      sfx('throw', from);
+      return;
+    }
 
     if (bot.exact) {
       // The probes' throw: dead on your head (or your hips), no slop.
@@ -1027,7 +1181,9 @@ export class DuelSystem extends createSystem({}) {
     this.hudChip.scale.x = Math.max(0.0001, 0.82 * this.chip);
 
     const secs = Math.ceil(this.timer);
-    const name = `${this.label}|${this.rounds[0]} – ${this.rounds[1]}|${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    const name = this.tutorial
+      ? `${this.label}|${this.lesson ? 'TUTORIAL' : 'KNOCK HIM DOWN'}|`
+      : `${this.label}|${this.rounds[0]} – ${this.rounds[1]}|${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
     if (name !== this.drawnName) {
       this.drawnName = name;
       const [label, score, clock] = name.split('|');
@@ -1037,7 +1193,7 @@ export class DuelSystem extends createSystem({}) {
         g.textAlign = 'left';
         glowText(g, label, w * 0.02, h / 2, NEON.ember);
         g.textAlign = 'center';
-        glowText(g, `YOU ${score}`, w / 2, h / 2, NEON.cyan);
+        glowText(g, this.tutorial ? score : `YOU ${score}`, w / 2, h / 2, NEON.cyan);
         g.textAlign = 'right';
         glowText(g, clock, w * 0.98, h / 2, NEON.hot);
       });
@@ -1045,7 +1201,7 @@ export class DuelSystem extends createSystem({}) {
     if (this.message !== this.drawnBig) {
       this.drawnBig = this.message;
       const text = this.message;
-      const color = /YOU/.test(text) ? NEON.lime : /WINS|ROUND TO/.test(text) ? NEON.danger : NEON.hot;
+      const color = /YOU WIN|TO YOU|DOWN HE/.test(text) ? NEON.lime : /WINS|ROUND TO|WENT DOWN/.test(text) ? NEON.danger : NEON.hot;
       this.hudBig.draw((g, w, h) => {
         if (!text) return;
         g.textAlign = 'center';

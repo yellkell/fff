@@ -19,13 +19,21 @@
  * the world title won, a defence lost and won back in his rematch (the
  * whirlwind, the double decree, and the orb: taken, palmed, shot down);
  * a palm held up in front of your face blocks every volley bolt and shell.
- * Then 1V1: the ROOKIE fades in, counts you down and rings the bell; its ball lands on a still head,
+ * Then 1V1 (off the console now, started from the probes' hook): the ROOKIE fades in, counts you down and rings the bell; its ball lands on a still head,
  * misses one that steps aside after the release, is knocked out of the air
  * by an open palm, and finds your hips when thrown low; your ball lands on
  * it, meets its ball in the air, and is slapped down by its raised guard;
  * three rounds go 2–1 to the results face, NEXT BOT climbs a rung, a lost
  * match is lost, and at the top rung NEXT BOT locks (and a locked card
- * refuses). Last, from off-centre, RECENTRE
+ * refuses). Then TUTORIAL, in its place on the console: the rust bucket
+ * fades in slumped; EMBER says "Over here", hello, and asks for BEGIN on a
+ * panel at the console's spot, whose press lights no ball; a pinch lights
+ * one and wakes the rust bucket; a punch lands on him; a ball called home
+ * in flight and caught passes the recall; two real blocks of his drill
+ * balls (an orbiting ball in their path), neither of which hurts; a step
+ * left and a step right as she calls them; then the bell, your health bar,
+ * the knockdown, her last line, the results face (YOU GRADUATED, AGAIN
+ * and TITANS) and the tutorial remembered. Last, from off-centre, RECENTRE
  * puts the pad back under you. Throughout, the sound: it starts with the
  * Enter press, every moment above fires its sound, and SOUND on the wrist
  * panel mutes it and brings it back; and the music follows along (Dusk
@@ -802,10 +810,10 @@ if (offered) {
   await handsDown();
   await duelDebug({ hold: true, still: true });
   s = await S();
-  check('the 1V1 card is open', s.buttons['1v1'].active && !s.buttons['1v1'].locked);
-  await poke('1v1');
+  check('TUTORIAL has taken 1V1’s place on the console', s.buttons.tutorial?.active && !s.buttons['1v1'], Object.keys(s.buttons).join(' '));
+  await page.evaluate(() => window.__flux.play('duel'));
   let d = await D();
-  check('poking 1V1 brings the ROOKIE in', (await S()).mode === 'duel' && d.phase === 'intro' && d.label === 'ROOKIE', `${d.phase} · ${d.label}`);
+  check('1V1 still brings the ROOKIE in', (await S()).mode === 'duel' && d.phase === 'intro' && d.label === 'ROOKIE', `${d.phase} · ${d.label}`);
   d = await untilD((x) => x.phase === 'countdown', 5000);
   check('ROUND 1 before the countdown', d.phase === 'countdown' && d.round === 1 && d.message === 'ROUND 1', d.message);
   d = await untilD((x) => x.message === '3', 3000);
@@ -973,6 +981,104 @@ if (offered) {
     check('the duel makes all its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : need.join(' · '));
   }
   await duelDebug({ hold: false, still: false });
+
+  // ── TUTORIAL ──
+  {
+    const TU = () => page.evaluate(() => window.__flux.tutorial());
+    const untilT = async (fn, ms = 10000) => {
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        const x = await TU();
+        if (fn(x)) return x;
+        await page.waitForTimeout(40);
+      }
+      return TU();
+    };
+    await page.evaluate(() => localStorage.removeItem('flux-tutorial'));
+    await place('headset', { x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: 0, w: 1 });
+    await handsDown();
+    await settle(400);
+    await poke('tutorial');
+    // Her lines in a blink: the voice is FF2's, the timing is the probe's.
+    await page.evaluate(() => (window.__flux.tutorDebug.quick = true));
+    let u = await TU();
+    check('poking TUTORIAL brings the rust bucket in', (await S()).mode === 'tutorial' && u.duel.label === 'RUST BUCKET' && ['intro', 'fight'].includes(u.duel.phase), `${u.duel.phase} · ${u.duel.label}`);
+    u = await untilT((x) => x.said.includes('overHere'), 5000);
+    check('EMBER: "Over here."', u.beat === 'attention' && u.caption === 'Over here.', u.caption);
+    m = await musicIs('tutorial', (tr) => tr === 'breakcore-drums', 8000);
+    check('FF2’s tutorial track plays under her', m.cue === 'tutorial' && m.playing, `${m.cue} · ${m.track}`);
+    u = await untilT((x) => x.said.includes('begin'), 12000);
+    await settle(700);
+    s = await S();
+    check('then hello, and BEGIN rises at the console’s spot', u.said.includes('hello') && s.buttons.begin?.active, u.said.join(' '));
+    check('he stands slumped till she names him', !(await SND()).log.rustWake);
+    await place('hand-right', HOME);
+    await pinch(1);
+    await settle(300);
+    check('a pinch while BEGIN is up lights nothing', (await R()).ball !== 'orbit', (await R()).ball);
+    await pinch(0);
+    await poke('begin');
+    u = await untilT((x) => x.beat === 'ignite', 3000);
+    check('BEGIN starts the lessons: light a ball', u.beat === 'ignite' && /CLOSE A FIST/.test(u.cue), u.cue);
+    await place('hand-right', AT_IT);
+    await settle(700);
+    await pinch(1);
+    u = await untilT((x) => x.beat === 'throw', 3000);
+    check('a pinch lights it: "There it is."', u.beat === 'throw' && u.said.includes('igniteDone'), u.beat);
+    await settle(900);
+    check('and the rust bucket comes to', ((await SND()).log.rustWake ?? 0) > 0);
+    await swing(true, AT_IT, 5);
+    u = await untilT((x) => x.beat !== 'throw', 5000);
+    check('a punch lands on him: "Good job. He felt that."', u.said.includes('throwDone') && u.beat === 'recall' && u.duel.rivalHp === 0.55, `${u.beat} · his health ${u.duel.rivalHp}`);
+    await place('hand-right', AT_IT);
+    await settle(700);
+    await pinch(1);
+    await settle(300);
+    await swing(true, AT_IT, 5, 0.36, { x: 0.7, y: 0.3, z: -0.64 });
+    await settle(250);
+    await pinch(1);
+    u = await untilT((x) => x.beat !== 'recall', 4000);
+    check('called home in flight and caught: the recall', u.said.includes('recallDone') && u.beat === 'block', u.beat);
+    await place('hand-right', { x: 0, y: 1.25, z: -0.3 });
+    await pinch(0);
+    await settle(600);
+    await pinch(1);
+    u = await untilT((x) => x.beat !== 'block', 20000);
+    check('two of his throws blocked with a ball in their path', u.blocks === 2 && u.beat === 'move' && u.said.includes('blockTwo'), `blocks ${u.blocks}`);
+    check('a lesson never hurts', u.playerHp === 1 && u.duel.hitsTaken === 0, `your health ${u.playerHp}, hits ${u.duel.hitsTaken}`);
+    await pinch(0);
+    for (let i = 0; i < 6 && u.beat === 'move'; i++) {
+      u = await untilT((x) => x.beat !== 'move' || /moveLeft|moveRight/.test(x.line), 12000);
+      if (u.beat !== 'move') break;
+      const left = u.line === 'moveLeft';
+      await place('headset', { x: left ? -0.5 : 0.5, y: 1.6, z: 0 });
+      u = await untilT((x) => x.beat !== 'move' || !/moveLeft|moveRight/.test(x.line), 6000);
+      await place('headset', { x: 0, y: 1.6, z: 0 });
+    }
+    check('a step each way as she calls it', u.said.includes('moveLeft') && u.said.includes('moveRight') && u.reps === 2, u.said.slice(-4).join(' '));
+    u = await untilT((x) => x.beat === 'fight', 8000);
+    await settle(400);
+    check('then the fight: the bell, and your health bar', u.beat === 'fight' && ((await SND()).log.bell ?? 0) > 0 && (await page.evaluate(() => window.__flux.vitals())).visible);
+    await page.evaluate(() => Object.assign(window.__flux.duelDebug, { setRivalHp: 0 }));
+    u = await untilT((x) => x.said.includes('win'), 4000);
+    check('knock him down: "Down goes the rust bucket."', u.caption.startsWith('Down goes the rust bucket'), u.caption);
+    u = await untilT((x) => x.beat === 'off' && x.result, 15000);
+    await settle(800);
+    s = await S();
+    check(
+      'the console comes back: YOU GRADUATED, AGAIN, TITANS',
+      s.mode === 'home' && u.result?.mode === 'tutorial' && u.result.won && s.buttons.rematch.active && !s.buttons.next.locked,
+      JSON.stringify(u.result),
+    );
+    check('and the tutorial is remembered', u.done === 'done');
+    const log = (await SND()).log;
+    const need = ['emberChime', 'rustWake', 'consoleRise', 'block', 'bell', 'ko', 'win'];
+    const missing = need.filter((n) => !log[n]);
+    check('the tutorial makes its sounds', missing.length === 0, missing.length ? `silent: ${missing.join(', ')}` : need.join(' · '));
+    await page.evaluate(() => (window.__flux.tutorDebug.quick = false));
+    await settle(350);
+    await poke('home');
+  }
 
   // RECENTRE last: it moves the world, and every poke above assumes it hasn't.
   // ── RECENTRE, from off to one side and turned ──

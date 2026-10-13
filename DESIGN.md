@@ -83,9 +83,10 @@ joints directly.
   your hands, a hand shape never lights, throws or recalls a ball.
 - **THE CONSOLE** (home). It rises out of the floor at the front of your
   pad, ~42 cm in front of you at chest height, tilted to face you, and
-  sinks away when a fight starts. Three cards: **TITANS**, **1V1**,
-  **PRACTICE**. Modes not built yet stay on it, locked, so the game's
-  shape is there from day one. Each card becomes a station in THE
+  sinks away when a fight starts. Three cards: **TITANS**, **TUTORIAL**,
+  **PRACTICE**. TUTORIAL (§4.2) took 1V1's place; 1V1 comes back to the
+  console with the relay. Modes not built yet stay on it, locked, so the
+  game's shape is there from day one. Each card becomes a station in THE
   CONSTELLATION (§6): TITANS → the BOSS GATE, 1V1 → the DUEL RING.
 - **THE WRIST PANEL.** Left palm up, looked at, held for 0.2 s: it opens
   above your palm, poked with your right hand. Two by two: **LEAVE** (back
@@ -508,7 +509,13 @@ once you've won the one you just fought:
   the fight.
 - **The belts** (`ui/belt.ts`): drawn like the titans, dark glass with lit
   edge tubes and halos: a strap bowed back at the ends, a stitch line, an
-  octagonal centre plate with a ring and a glowing stone, side plates.
+  octagonal centre plate with a ring and a glowing stone, and four side
+  plates, two either side, set into the strap: inside its height, every
+  point bowed back with it (a flat plate stood up to 2 cm proud of the
+  curve at its outer edge, and read as floating), with a tinted face and
+  its stone on that face. A belt's name under it turns white when it's
+  won (the label used to redraw only when its text changed, and a belt's
+  name doesn't).
 - **The rack:** all four over the console's top edge. A win lifts the
   belt off the rack, big, over the console (the title reads "NATIONAL
   CHAMPION") to a fanfare (`belt`), and puts it back after ~4 s; a won
@@ -573,6 +580,87 @@ a remote player's pose packets can drive it as the bot does now.
   pad reaches 3.75 m out), whether the rookie's 3.4 m/s balls read as
   dodgeable without being dull, how generous the palm is against a ball
   rather than a fist, and whether the rival's lights read across a lit room.
+- **Off the console for now:** TUTORIAL (§4.2) has its card. The duel is
+  all still here (the tutorial rides it, and the checks play it), and
+  comes back to the console as 1V1 over the relay.
+
+### 4.2 The tutorial, with EMBER
+
+FF2's voiced tutorial (its `TutorialSystem` and `docs/tutorial-ember.md`),
+rebuilt for hands, passthrough and the duel's bot
+(`systems/TutorialSystem.ts`, `tutorial/`). TUTORIAL on the console starts
+it; its second line says START HERE until you've graduated once
+(`flux-tutorial` in localStorage).
+
+- **EMBER** is FF2's guide: a warm ball of light, gold round a white-hot
+  heart, that bobs, trails embers and glows brighter while she talks. Her
+  voice is FF2's recordings, through an HRTF panner on her, so it comes
+  from wherever she is, on the effects bus (SOUND mutes her).
+- **Only the lines that are true here.** FF2's script teaches a
+  controller and sends you to its locker, store and ball loadout, and has
+  a line about its Sheriff. Those lines are out: hold the trigger (e020,
+  e022, e032), the loadout (e070–e075), the Sheriff (e064). Three takes
+  are cut at a pause to the sentences that are true here: e030 "See this
+  rust bucket? I'll mark the spot.", e040 "Littering is a crime.", e084
+  "Down goes the rust bucket. Well done, well done, well done." (the clips'
+  README has the cut points). As in FF2, the caption is a word-for-word
+  transcript of the take.
+- **The cue line.** What your hands do is Flux's grammar (§2), which no
+  recorded line says, so it goes on a cyan line under her caption: CLOSE A
+  FIST (OR PINCH) TO LIGHT A BALL, PUNCH AT HIM, OPENING YOUR HAND AS YOU
+  GO, and so on. A throw let go too slowly flashes it red: FASTER.
+- **Where she goes** (FF2's playtested marks): she starts off to the side
+  at ~10 o'clock and drifts on a path fixed in the room until you look at
+  her (or 4.5 s, then she comes into your eyeline); THE PODIUM, 1.5 m dead
+  ahead at eye height, for everything she explains; round your fist while
+  you light a ball; over the rust bucket's head while you throw at him;
+  out of the firing line while his ball comes; out on the called side in
+  the footwork drill; up on a perch through the fight. Out at the rust
+  bucket her caption comes up near you, like subtitles, instead of a
+  plate big enough to read hanging over him; when she's low, over the
+  BEGIN panel, it's above her.
+- **The lessons** ride the duel as a held bout (`duelTutor`): the rust
+  bucket doesn't throw or guard on his own, there's no clock, and nobody's
+  health moves, though hits still count so a lesson can see them.
+  1. *Attention*: "Over here.", hello, then BEGIN on a panel that rises at
+     the console's spot (your hands don't fight while it's up).
+  2. *Light a ball*: she circles your fist. "There it is. Well done."
+  3. *Throw*: he groans awake as she names him; land one, or let one go.
+  4. *Recall*: close your hand while a ball's in flight and catch it
+     (skipped if you already did in the throw).
+  5. *Block*: with a ball spinning round your hand, he throws at your
+     chest (2.4 m/s), then again faster (3.2); a miss eases off (2.1). Any
+     guard counts: the ball, a palm, a ball flying home. Twice.
+  6. *Move*: she calls LEFT, then RIGHT; his ball goes at where your head
+     was when she called it (2.6 m/s, 2.3 after two misses that side); the
+     half of your pad to step into lights lime, charging with the throw,
+     chevrons marching out. Clean means it missed and your head went
+     35 cm the called way; anything else is that side again.
+  7. *The fight*: the bell; the rust bucket fights as the ROOKIE, at 55%
+     health, no clock. One-shot lines when you land one, when you're hit,
+     and when he's under 20%. Down either way, her last line plays, then
+     the console comes back: YOU GRADUATED (or RUST BUCKET WINS), with
+     AGAIN and TITANS (your next bout).
+  A lesson waiting on you replays its line after 14 s, then "No rush.
+  Whenever you're ready.", then waits quietly.
+- **THE RUST BUCKET** (`duel/rival.ts`, `skin: 'rust'`): the rival's body
+  made over as an old sparring machine nobody's oiled. Rust-orange lines
+  that burn less white than new neon; two odd eye lamps where the visor
+  was, the big one with a bad bulb that stutters out now and then; a bent
+  antenna with a blinking bulb; a ring of rivets and a mouth grille;
+  verdigris patch plates riveted on skew over the chest; a pressure dial
+  whose needle never settles; a stovepipe up behind the right shoulder
+  (it always faces you, so lower on its back would never be seen) puffing
+  smoke; verdigris cuffs on the gloves. Before EMBER names him he stands
+  slumped, head down, gloves hanging, lamps dim; then he groans awake
+  (`rustWake`) and puts his guard up.
+- **Music:** FF2's tutorial track, the drums cut of "Breakcore", under
+  her lessons and the fight; the victory sting if he goes down.
+- **Checks:** `check:smoke` plays it from TUTORIAL to graduation with the
+  emulator's hands (her lines in a blink: `tutorDebug.quick`).
+- **Open, to tune on a headset:** the drills' speeds; whether the cue line
+  reads at a glance mid-punch; whether the subtitles at the rust bucket sit
+  in the right spot.
 
 ---
 
@@ -636,8 +724,9 @@ laid out on your floor.
 Steps 1–3 are done: hands, menus (§2.1), the neon titans (§3.4), and
 RUSTHOOK's fight with the palm block (§3.5). Step 4 is built: all five
 titans fight (§3.6, §3.7, §3.9, §3.10). Step 5 is half built: 1V1 against
-the bot (§4.1). Next is tuning the titans and the duel on a headset, then
-1V1 over the relay. See the README.
+the bot (§4.1), whose bout the tutorial rides (§4.2). Next is tuning the
+titans, the duel and the tutorial on a headset, then 1V1 over the relay.
+See the README.
 
 1. **Scaffold:** Vite + IWSDK in immersive-AR with hand tracking required,
    a neon platform outline with the back cut, and the desktop emulator for

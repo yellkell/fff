@@ -11,7 +11,7 @@ import { musicState } from './audio/music.js';
 import { audioContext, audioState, isMuted, masterGain, sfxLog, unlockAudio } from './audio/sfx.js';
 import { Impacts } from './fx/impact.js';
 import { fx, Sparks } from './fx/neon.js';
-import { game } from './game/state.js';
+import { game, type Mode, setMode } from './game/state.js';
 import { AudioSystem } from './systems/AudioSystem.js';
 import { MusicSystem } from './systems/MusicSystem.js';
 import { BoundarySystem } from './systems/BoundarySystem.js';
@@ -22,6 +22,7 @@ import { hands } from './input/hands.js';
 import { HandSystem } from './systems/HandSystem.js';
 import { PokeSystem } from './systems/PokeSystem.js';
 import { TargetSystem } from './systems/TargetSystem.js';
+import { tutorDebug, tutorStats, TutorialSystem } from './systems/TutorialSystem.js';
 import { titanDebug, titanStats, TitanSystem } from './systems/TitanSystem.js';
 import { boutStats, BoutSystem } from './systems/BoutSystem.js';
 import { career } from './game/career.js';
@@ -72,6 +73,7 @@ World.create(container, {
     .registerSystem(TitanSystem)
     .registerSystem(BoutSystem)
     .registerSystem(DuelSystem)
+    .registerSystem(TutorialSystem)
     .registerSystem(VitalsSystem)
     .registerSystem(FireballSystem)
     .registerSystem(BoundarySystem)
@@ -95,6 +97,10 @@ World.create(container, {
     duel: () => ({ ...duelStats, playerHp: game.playerHp, result: game.result }),
     duelDebug,
     rung: (n?: number) => (n === undefined ? game.rung : (game.rung = n)),
+    tutorial: () => ({ ...tutorStats, said: [...tutorStats.said], duel: { ...duelStats }, playerHp: game.playerHp, result: game.result, done: localStorage.getItem('flux-tutorial') }),
+    tutorDebug,
+    /** Start a mode with no card on the console (1V1 waits for the relay). */
+    play: (mode: Mode) => setMode(mode),
     vitals: () => ({ ...vitalsStats }),
     sound: () => ({ state: audioState(), muted: isMuted(), gain: masterGain(), log: { ...sfxLog } }),
     /** Park the sound, as a headset browser can on entering the session. */
