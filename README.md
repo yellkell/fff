@@ -189,8 +189,9 @@ rebuilt for the headsets that ship without controllers. **Read
   up a throw, a pressure dial whose needle never settles, a verdigris
   patch riveted on skew, and two smokestacks behind his shoulders,
   puffing. Jointed arms: ball shoulders under riveted pauldrons, plated
-  upper arms, a bare piston rod into a heavy forearm sleeve, square fists
-  with knuckle rivets. Stocky legs on a hip block, knees that bend toward
+  upper arms, a bare piston rod into a heavy forearm sleeve, hands closed into
+  fists: four jointed fingers curled under riveted knuckles, the thumb
+  wrapped across them, a gauntlet cuff. Stocky legs on a hip block, knees that bend toward
   you, and square boots that stay planted and step when he strafes off
   them. He stands slumped and dark until EMBER names him ("See this rust
   bucket?"), then groans awake.

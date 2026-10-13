@@ -13,7 +13,8 @@
  *            riveted on skew; two smokestacks behind its shoulders, puffing.
  *   ARMS     ball shoulders under riveted pauldrons, a plated upper arm, an
  *            elbow ball, and a forearm that's a bare piston rod into a heavy
- *            sleeve; square fists with a row of knuckle rivets.
+ *            sleeve; hands closed into fists, four jointed fingers curled
+ *            under riveted knuckles, the thumb wrapped across them.
  *   LEGS     the barrel runs on below its hips onto stocky legs: a hip block, ball hips, plated thighs and shins on knee balls
  *            that bend toward you, and square boots. The boots stay planted
  *            and take a step, one at a time, when it strafes too far off
@@ -34,7 +35,7 @@ import {
   Mesh,
   type MeshBasicMaterial,
   type Object3D,
-  type Quaternion,
+  Quaternion,
   SphereGeometry,
   type Sprite,
   TorusGeometry,
@@ -42,7 +43,7 @@ import {
   Vector3,
   BoxGeometry,
 } from 'three';
-import { BOT, NEON, TITAN_NEON } from '../config.js';
+import { NEON, TITAN_NEON } from '../config.js';
 import { fx } from '../fx/neon.js';
 import { tubes } from '../titans/neon.js';
 
@@ -115,6 +116,9 @@ const _bend = new Vector3();
 const _across = new Vector3();
 const _m = new Matrix4();
 const _top = new Vector3();
+const _rot = new Quaternion();
+/** The middle of a fist, for which way is "outside" on a finger. */
+const CENTRE = new Vector3(0, 0.004, -0.03);
 
 /** A unit part along +y, stretched between two joints each frame. */
 interface Segment {
@@ -170,7 +174,8 @@ export class RustRig {
     for (const y of [0.33, 0.66]) this.neck.obj.add(this.lines(this.ring(0.056 - y * 0.012, SIDES * 2, y), undefined, 0.004));
     this.buildArms();
     this.buildLegs();
-    for (const f of fists) this.buildFist(f);
+    // (Index 0 is its left hand: the thumb on the inside, toward its right.)
+    fists.forEach((f, i) => this.buildFist(f, i === 0 ? 1 : -1));
   }
 
   /* ── building ──────────────────────────────────────────────────────── */
@@ -442,18 +447,78 @@ export class RustRig {
     }
   }
 
-  private buildFist(g: Group): void {
-    const s = BOT.gloveRadius;
-    g.add(this.solid(new BoxGeometry(s * 1.7, s * 1.45, s * 1.6)));
-    // Knuckle rivets across its front (−z faces the way it punches), a cuff.
-    for (let i = 0; i < 4; i++) {
-      const r = this.kit.dot(RUST.bulb, 0.014, 0.8);
-      r.position.set((i - 1.5) * s * 0.42, s * 0.35, -s * 0.82);
-      g.add(r);
+  /**
+   * A hand, closed into a fist: a rounded back of the hand, four fingers
+   * curled under it in two jointed segments from a row of knuckle balls,
+   * the thumb wrapped across them, a gauntlet cuff at the wrist. Local −z
+   * is the way it punches; `thumb` is the side its thumb is on (+x is the
+   * rival's right).
+   */
+  private buildFist(g: Group, thumb: number): void {
+    // The back of the hand: a rounded shell, its outline lit.
+    const back = new SphereGeometry(1, 10, 6);
+    back.scale(0.05, 0.038, 0.046).translate(0, 0.006, 0.006);
+    g.add(new Mesh(back, this.kit.glass()));
+    const rim: number[] = [];
+    for (let k = 0; k < 16; k++) {
+      const a0 = (k / 16) * Math.PI * 2;
+      const a1 = ((k + 1) / 16) * Math.PI * 2;
+      rim.push(Math.cos(a0) * 0.05, 0.006 + Math.sin(a0) * 0.038, -0.004, Math.cos(a1) * 0.05, 0.006 + Math.sin(a1) * 0.038, -0.004);
     }
-    const cuff = new Mesh(new TorusGeometry(s * 0.7, TITAN_NEON.edgeRadius * 1.4, 6, 18), this.kit.edge(RUST.patina));
-    cuff.position.z = s * 0.95;
-    g.add(cuff);
+    g.add(this.lines(rim, undefined, 0.0035));
+    // Fingers, curled: knuckle → middle joint → tip, tucked back under.
+    // Too small for a lit edge on every crease (they'd blow out into one
+    // white blob, as on a titan's smallest parts): dark glass, with one lit
+    // line along the outside of each finger's curl.
+    const bones: BufferGeometry[] = [];
+    const curl: number[] = [];
+    const along = (pts: Vector3[], lift: number): void => {
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const a = _a.copy(pts[k]).add(_c.copy(pts[k]).sub(CENTRE).normalize().multiplyScalar(lift));
+        const b = _top.copy(pts[k + 1]).add(_c.copy(pts[k + 1]).sub(CENTRE).normalize().multiplyScalar(lift));
+        curl.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      }
+    };
+    const bone = (a: Vector3, b: Vector3, r: number): void => {
+      const len = a.distanceTo(b);
+      const geo = new CylinderGeometry(r, r * 0.9, len, 6, 1).translate(0, len / 2, 0);
+      _b.copy(b).sub(a).divideScalar(len);
+      geo.applyMatrix4(_m.makeRotationFromQuaternion(_rot.setFromUnitVectors(UP, _b)).setPosition(a));
+      bones.push(geo);
+    };
+    for (let i = 0; i < 4; i++) {
+      const x = (i - 1.5) * 0.025;
+      const reach = i === 1 || i === 2 ? 0.005 : 0;
+      const knuckle = new Vector3(x, 0.022, -0.042 - reach);
+      const mid = new Vector3(x, -0.002, -0.066 - reach);
+      const tip = new Vector3(x * 0.95, -0.028, -0.048);
+      bone(knuckle, mid, 0.0115);
+      bone(mid, tip, 0.0105);
+      along([knuckle, mid, tip], 0.0135);
+      const ball = new Mesh(new SphereGeometry(0.0135, 8, 6), this.kit.glass());
+      ball.position.copy(knuckle);
+      const rivet = this.kit.dot(RUST.bulb, 0.016, 0.8);
+      rivet.position.copy(knuckle).add(_c.set(0, 0.006, -0.012));
+      g.add(ball, rivet);
+    }
+    // The thumb, wrapped across the front of the curled fingers.
+    const t0 = new Vector3(thumb * 0.046, -0.004, -0.004);
+    const t1 = new Vector3(thumb * 0.036, -0.03, -0.042);
+    const t2 = new Vector3(thumb * 0.004, -0.036, -0.06);
+    bone(t0, t1, 0.0135);
+    bone(t1, t2, 0.0125);
+    along([t0, t1, t2], 0.015);
+    for (const geo of bones) g.add(new Mesh(geo, this.kit.glass()));
+    // Drawn after the fingers' glass, so none of it can bury them.
+    const fingers = this.lines(curl, undefined, 0.0025);
+    fingers.traverse((o) => (o.renderOrder = 1));
+    g.add(fingers);
+    // The gauntlet cuff at the wrist.
+    const cuff = new CylinderGeometry(0.042, 0.038, 0.04, 8, 1).rotateX(Math.PI / 2).translate(0, 0, 0.055);
+    g.add(this.solid(cuff));
+    const band = new Mesh(new TorusGeometry(0.043, TITAN_NEON.edgeRadius * 1.4, 6, 18), this.kit.edge(RUST.patina));
+    band.position.z = 0.045;
+    g.add(band);
   }
 
   /* ── every frame ───────────────────────────────────────────────────── */

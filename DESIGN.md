@@ -663,8 +663,13 @@ it; its second line says START HERE until you've graduated once
     faces you, so lower on his back would never be seen), puffing in turn.
   - *Arms:* ball shoulders under riveted pauldrons, plated upper arms,
     elbow balls, a bare piston rod out of the elbow into a heavy forearm
-    sleeve; elbows tucked closer than the boxer's; square fists with a
-    row of knuckle rivets and a verdigris cuff.
+    sleeve; elbows tucked closer than the boxer's; hands closed into
+    fists: a rounded back of the hand, four fingers curled in two jointed
+    segments under knuckle balls, the thumb wrapped across the front, a
+    gauntlet cuff with a verdigris band. The fingers are too small for a
+    lit edge on every crease (it blows out into one white blob, as on a
+    titan's smallest parts): dark glass, with one lit line along the
+    outside of each finger's curl, drawn after the glass.
   - *Legs:* a riveted hip block, ball hips, plated thighs and shins on
     knee balls that bend toward you, square boots with a toe cap. The
     boots stay planted; when he strafes 11 cm off one it steps (one at a
