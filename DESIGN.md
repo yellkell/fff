@@ -139,7 +139,7 @@ two neon ones (a plucked synth note and an electric zap): no files.
 - **The sound board** (`sounds.html`, in the Pages build) plays every
   sound on a tap; `check:sounds` renders each offline and holds it
   audible, unclipped and short.
-- **Music** (`src/audio/music.ts`, cued by `MusicSystem`): *Overtime* at
+- **Music** (`src/audio/music.ts`, cued by `MusicSystem`): *Dusk*, the title song, at
   the console; FF2's *Aim* in practice; one of FF2's six battle tracks
   per titan fight, never the same twice running; FF2's victory sting as a
   titan falls to you, ringing on over the results for up to 6.5 s before

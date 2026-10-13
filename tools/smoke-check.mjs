@@ -28,9 +28,9 @@
  * refuses). Last, from off-centre, RECENTRE
  * puts the pad back under you. Throughout, the sound: it starts with the
  * Enter press, every moment above fires its sound, and SOUND on the wrist
- * panel mutes it and brings it back; and the music follows along (Overtime
+ * panel mutes it and brings it back; and the music follows along (Dusk
  * at the console, Aim in practice, a battle track in each fight, the victory
- * sting, then Overtime again), with MUSIC muting it. No page errors
+ * sting, then Dusk again), with MUSIC muting it. No page errors
  * throughout.
  * (The fist path is proven joint by joint in check:hands; the emulator's
  * hands only know open and pinch.)
@@ -232,8 +232,8 @@ if (offered) {
     return m;
   };
   await page.evaluate(() => localStorage.removeItem('flux-music'));
-  let m = await musicIs('home', (tr) => tr === 'overtime');
-  check('the console plays Overtime', m.cue === 'home' && m.track === 'overtime' && m.playing, `${m.cue} · ${m.track} · level ${m.level.toFixed(2)}`);
+  let m = await musicIs('home', (tr) => tr === 'dusk');
+  check('the console plays Dusk', m.cue === 'home' && m.track === 'dusk' && m.playing, `${m.cue} · ${m.track} · level ${m.level.toFixed(2)}`);
   let s = await S();
   check('you arrive at the console', s.mode === 'home' && s.buttons.practice?.active, s.mode);
   check('no balls at the console', (await page.evaluate(() => window.__flux.balls())).length === 2);
@@ -352,7 +352,7 @@ if (offered) {
   await handsDown();
   t = await until((x) => x.phase === 'fight');
   check('RUSTHOOK prints into the room', t.phase === 'fight');
-  m = await musicIs('titans', (tr) => tr && tr !== 'aim' && tr !== 'overtime');
+  m = await musicIs('titans', (tr) => tr && tr !== 'aim' && tr !== 'dusk');
   check('a battle track plays under the fight', m.cue === 'titans' && m.playing && m.tracks === 6, `${m.track} (one of ${m.tracks})`);
 
   await debug({ force: 'jab' });
@@ -784,8 +784,8 @@ if (offered) {
   }
   await debug({ hold: false });
 
-  m = await musicIs('home', (tr) => tr === 'overtime', 15000);
-  check('then the console’s music comes back', m.cue === 'home' && m.track === 'overtime', `${m.cue} · ${m.track}`);
+  m = await musicIs('home', (tr) => tr === 'dusk', 15000);
+  check('then the console’s music comes back', m.cue === 'home' && m.track === 'dusk', `${m.cue} · ${m.track}`);
 
   // ── 1V1 ──
   const D = () => page.evaluate(() => window.__flux.duel());
@@ -813,7 +813,7 @@ if (offered) {
   d = await untilD((x) => x.phase === 'fight', 6000);
   check('the bell: round 1', d.phase === 'fight' && d.round === 1 && d.message === 'FIGHT', `${d.phase} · ${d.message}`);
   if (shotDir) await shot('duel');
-  m = await musicIs('titans', (tr) => tr && tr !== 'aim' && tr !== 'overtime');
+  m = await musicIs('titans', (tr) => tr && tr !== 'aim' && tr !== 'dusk');
   check('a battle track plays under the duel', m.cue === 'titans' && m.playing, m.track);
   check('your health bar rises for it', (await page.evaluate(() => window.__flux.vitals())).visible);
 

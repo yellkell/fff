@@ -1,8 +1,8 @@
 /**
- * THE MUSIC, cued by what you're doing: Flux's own menu track, and FIRE
+ * THE MUSIC, cued by what you're doing: Flux's own title song, and FIRE
  * FIGHT 2's score for everything else.
  *
- *   home      "Overtime", under the console.
+ *   home      "Dusk", the title song, under the console.
  *   practice  "Aim", looped.
  *   titans    one of FF2's battle tracks, never the same one twice running.
  *   victory   FF2's victory sting as a titan falls to you, then home.
@@ -23,7 +23,7 @@
  */
 
 import aimUrl from '../assets/music/aim.mp3?url';
-import overtimeUrl from '../assets/music/overtime.mp3?url';
+import duskUrl from '../assets/music/dusk.mp3?url';
 import victoryUrl from '../assets/music/victory.mp3?url';
 import { audioContext } from './sfx.js';
 
@@ -181,7 +181,7 @@ export function setMusicCue(next: MusicCue): void {
   cue = next;
   switch (next) {
     case 'home':
-      void start(overtimeUrl, LOUDNESS.home, true);
+      void start(duskUrl, LOUDNESS.home, true);
       break;
     case 'practice':
       void start(aimUrl, LOUDNESS.practice, true);
